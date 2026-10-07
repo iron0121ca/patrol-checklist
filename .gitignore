@@ -1,0 +1,23 @@
+# Patrol Checklist System · Git Ignore Rules
+# ============================================
+
+# Environment variables (contain API keys, do NOT commit)
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE config
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node dependencies (for future use)
+node_modules/
+
+# Logs
+*.log

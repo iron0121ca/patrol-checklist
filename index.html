@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Patrol Checklist · The Regency</title>
+    <!-- Supabase JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/@supabase/supabase-js/2.45.4/supabase.min.js"></script>
+    <style>
+        /* ===== CSS Variables ===== */
+        :root {
+            --primary: #1a56db;
+            --primary-light: #e8effd;
+            --success: #059669;
+            --success-bg: #d1fae5;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+            --warning: #d97706;
+            --warning-bg: #fef3c7;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-700: #374151;
+            --gray-900: #111827;
+            --radius: 8px;
+            --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--gray-100);
+            color: var(--gray-900);
+            line-height: 1.6;
+        }
+
+        /* ===== Auth Page ===== */
+        .auth-page {
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+            padding: 20px;
+        }
+        .auth-card {
+            background: white; border-radius: 12px; padding: 40px;
+            width: 100%; max-width: 400px; box-shadow: var(--shadow-lg);
+        }
+        .auth-card h1 {
+            font-size: 24px; text-align: center; margin-bottom: 8px;
+        }
+        .auth-card .subtitle {
+            color: var(--gray-500); text-align: center; margin-bottom: 24px; font-size: 14px;
+        }
+        .auth-card .logo {
+            text-align: center; margin-bottom: 16px;
+        }
+        .auth-card .logo span {
+            font-size: 48px;
+        }
+        .auth-card label {
+            display: block; font-size: 14px; font-weight: 600; margin-bottom: 4px; color: var(--gray-700);
+        }
+        .auth-card input {
+            width: 100%; padding: 10px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius);
+            font-size: 15px; margin-bottom: 16px; transition: border .2s;
+        }
+        .auth-card input:focus {
+            outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light);
+        }
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 10px 20px; border: none; border-radius: var(--radius); font-size: 15px;
+            font-weight: 600; cursor: pointer; transition: all .2s; text-decoration: none;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #1648c0; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #047857; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-outline {
+            background: white; color: var(--gray-700); border: 1px solid var(--gray-300);
+        }
+        .btn-outline:hover { background: var(--gray-50); }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+        .btn-block { width: 100%; }
+        .auth-error {
+            background: var(--danger-bg); color: var(--danger); padding: 10px; border-radius: var(--radius);
+            font-size: 14px; margin-bottom: 16px; display: none;
+        }
+
+        /* ===== App Layout ===== */
+        .app { display: none; min-height: 100vh; }
+        .app-header {
+            background: white; border-bottom: 1px solid var(--gray-200);
+            padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .app-header .brand {
+            font-size: 18px; font-weight: 700; color: var(--primary);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .app-header .brand small {
+            font-size: 12px; font-weight: 400; color: var(--gray-500);
+        }
+        .app-header .user-info {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .app-header .user-info .name {
+            font-size: 14px; font-weight: 600;
+        }
+        .app-header .user-info .role-badge {
+            font-size: 11px; padding: 2px 8px; border-radius: 20px;
+            background: var(--primary-light); color: var(--primary);
+        }
+        .app-header .user-info .role-badge.admin {
+            background: #fef3c7; color: #92400e;
+        }
+
+        /* ===== Navigation Tabs ===== */
+        .nav-tabs {
+            display: flex; background: white; border-bottom: 2px solid var(--gray-200);
+            padding: 0 24px; overflow-x: auto; gap: 0;
+        }
+        .nav-tabs button {
+            padding: 12px 20px; border: none; background: none; font-size: 14px; font-weight: 500;
+            color: var(--gray-500); cursor: pointer; border-bottom: 2px solid transparent;
+            margin-bottom: -2px; transition: all .2s; white-space: nowrap;
+        }
+        .nav-tabs button:hover { color: var(--gray-700); }
+        .nav-tabs button.active {
+            color: var(--primary); border-bottom-color: var(--primary);
+        }
+
+        /* ===== Main Content ===== */
+        .main-content {
+            max-width: 1100px; margin: 0 auto; padding: 24px;
+        }
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* ===== Dashboard ===== */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px; margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white; border-radius: var(--radius); padding: 20px;
+            box-shadow: var(--shadow);
+        }
+        .stat-card .num {
+            font-size: 32px; font-weight: 700; color: var(--primary);
+        }
+        .stat-card .label {
+            font-size: 13px; color: var(--gray-500); margin-top: 4px;
+        }
+
+        /* ===== Patrol Form ===== */
+        .patrol-entry {
+            background: white; border-radius: var(--radius); box-shadow: var(--shadow);
+            margin-bottom: 16px; overflow: hidden;
+        }
+        .patrol-entry .entry-header {
+            padding: 16px 20px; background: var(--gray-50);
+            border-bottom: 1px solid var(--gray-200);
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            flex-wrap: wrap;
+        }
+        .patrol-entry .entry-header .entry-num {
+            font-weight: 700; color: var(--primary); font-size: 14px;
+        }
+        .patrol-entry .entry-header .entry-fields {
+            display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+        }
+        .patrol-entry .entry-header .entry-fields input,
+        .patrol-entry .entry-header .entry-fields select {
+            padding: 6px 10px; border: 1px solid var(--gray-300); border-radius: var(--radius);
+            font-size: 13px;
+        }
+        .patrol-entry .entry-body {
+            padding: 16px 20px;
+        }
+        .entry-body table {
+            width: 100%; border-collapse: collapse; font-size: 14px;
+        }
+        .entry-body th, .entry-body td {
+            padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--gray-200);
+        }
+        .entry-body th {
+            background: var(--gray-50); font-weight: 600; font-size: 13px; color: var(--gray-500);
+        }
+        .entry-body td input[type="text"] {
+            width: 100%; padding: 6px 8px; border: 1px solid var(--gray-300);
+            border-radius: 4px; font-size: 13px;
+        }
+        .entry-body td input[type="text"]:focus {
+            outline: none; border-color: var(--primary);
+        }
+        .area-checkbox {
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        }
+        .area-checkbox label {
+            display: flex; align-items: center; gap: 4px; font-size: 13px;
+            cursor: pointer; padding: 4px 8px; border-radius: 4px;
+            background: var(--gray-50); border: 1px solid var(--gray-200);
+            transition: all .2s;
+        }
+        .area-checkbox label:hover { background: var(--gray-100); }
+        .area-checkbox input[type="checkbox"] { accent-color: var(--primary); }
+
+        /* ===== Log Book View ===== */
+        .log-book {
+            background: white; border-radius: var(--radius); box-shadow: var(--shadow);
+            padding: 24px; margin-bottom: 24px;
+        }
+        .log-book h2 {
+            font-size: 18px; margin-bottom: 16px; display: flex; justify-content: space-between;
+            align-items: center;
+        }
+        .log-book .log-header {
+            display: grid; grid-template-columns: 100px 1fr 1fr 1fr 80px;
+            gap: 8px; padding: 10px 12px; background: var(--gray-100);
+            font-weight: 600; font-size: 13px; border-radius: var(--radius) var(--radius) 0 0;
+        }
+        .log-row {
+            display: grid; grid-template-columns: 100px 1fr 1fr 1fr 80px;
+            gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--gray-200);
+            font-size: 13px; align-items: start;
+        }
+        .log-row:hover { background: var(--gray-50); }
+        .log-row .obs { color: var(--gray-700); }
+        .log-row .action { color: var(--gray-700); }
+        .log-row .areas { font-size: 12px; color: var(--gray-500); }
+        .badge-success {
+            display: inline-block; padding: 2px 8px; border-radius: 20px;
+            background: var(--success-bg); color: var(--success); font-size: 11px; font-weight: 600;
+        }
+        .badge-warning {
+            display: inline-block; padding: 2px 8px; border-radius: 20px;
+            background: var(--warning-bg); color: var(--warning); font-size: 11px; font-weight: 600;
+        }
+
+        /* ===== Summary Section ===== */
+        .summary-section {
+            background: white; border-radius: var(--radius); box-shadow: var(--shadow);
+            padding: 24px; margin-bottom: 24px;
+        }
+        .summary-section h2 { font-size: 18px; margin-bottom: 16px; }
+        .summary-section textarea {
+            width: 100%; padding: 10px; border: 1px solid var(--gray-300);
+            border-radius: var(--radius); font-size: 14px; margin-bottom: 12px;
+            resize: vertical; min-height: 60px; font-family: inherit;
+        }
+        .summary-section textarea:focus {
+            outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light);
+        }
+        .summary-section .sig-area {
+            display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+        }
+        .summary-section .sig-area label {
+            font-size: 14px; font-weight: 500;
+        }
+        .summary-section .sig-area input {
+            padding: 8px 12px; border: 1px solid var(--gray-300);
+            border-radius: var(--radius); font-size: 14px;
+        }
+
+        /* ===== History Page ===== */
+        .history-filters {
+            display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+            background: white; padding: 16px; border-radius: var(--radius);
+            box-shadow: var(--shadow); align-items: end;
+        }
+        .history-filters .filter-group {
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .history-filters .filter-group label {
+            font-size: 12px; font-weight: 600; color: var(--gray-500);
+        }
+        .history-filters input, .history-filters select {
+            padding: 6px 10px; border: 1px solid var(--gray-300);
+            border-radius: var(--radius); font-size: 13px;
+        }
+        .history-table {
+            width: 100%; border-collapse: collapse; background: white;
+            border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow);
+        }
+        .history-table th {
+            background: var(--gray-50); padding: 10px 16px; text-align: left;
+            font-size: 13px; font-weight: 600; color: var(--gray-500);
+            border-bottom: 1px solid var(--gray-200);
+        }
+        .history-table td {
+            padding: 12px 16px; font-size: 14px; border-bottom: 1px solid var(--gray-200);
+        }
+        .history-table tr:hover td { background: var(--gray-50); }
+        .btn-icon { background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px; }
+
+        /* ===== Admin Page ===== */
+        .admin-section {
+            background: white; border-radius: var(--radius); box-shadow: var(--shadow);
+            padding: 24px; margin-bottom: 16px;
+        }
+        .admin-section h3 {
+            font-size: 16px; margin-bottom: 16px; padding-bottom: 8px;
+            border-bottom: 1px solid var(--gray-200);
+        }
+        .admin-table {
+            width: 100%; border-collapse: collapse; font-size: 14px;
+        }
+        .admin-table th {
+            text-align: left; padding: 8px 12px; font-weight: 600;
+            color: var(--gray-500); font-size: 13px; border-bottom: 1px solid var(--gray-200);
+        }
+        .admin-table td {
+            padding: 8px 12px; border-bottom: 1px solid var(--gray-200);
+        }
+
+        /* ===== Modal ===== */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
+            z-index: 200; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-card {
+            background: white; border-radius: 12px; padding: 24px;
+            width: 100%; max-width: 500px; max-height: 80vh; overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+        }
+        .modal-card h2 { font-size: 18px; margin-bottom: 16px; }
+        .modal-card label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        .modal-card input, .modal-card select {
+            width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300);
+            border-radius: var(--radius); font-size: 14px; margin-bottom: 12px;
+        }
+        .modal-card input:focus, .modal-card select:focus {
+            outline: none; border-color: var(--primary);
+        }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+        /* ===== Toast ===== */
+        .toast {
+            position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
+            border-radius: var(--radius); color: white; font-weight: 500; font-size: 14px;
+            box-shadow: var(--shadow-lg); z-index: 300; display: none;
+            animation: slideIn .3s ease;
+        }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--primary); }
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* ===== Loading ===== */
+        .loading {
+            display: flex; align-items: center; justify-content: center;
+            padding: 40px; color: var(--gray-500); font-size: 14px;
+        }
+        .spinner {
+            width: 20px; height: 20px; border: 2px solid var(--gray-200);
+            border-top-color: var(--primary); border-radius: 50%;
+            animation: spin .6s linear infinite; margin-right: 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 768px) {
+            .app-header { padding: 10px 16px; }
+            .app-header .brand small { display: none; }
+            .nav-tabs { padding: 0 12px; }
+            .nav-tabs button { padding: 10px 14px; font-size: 13px; }
+            .main-content { padding: 16px; }
+            .log-header, .log-row {
+                grid-template-columns: 80px 1fr;
+                gap: 4px;
+                font-size: 12px;
+            }
+            .log-header .hide-mobile, .log-row .hide-mobile { display: none; }
+            .history-table { font-size: 13px; }
+            .history-table th, .history-table td { padding: 8px 10px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .stat-card .num { font-size: 24px; }
+            .patrol-entry .entry-header { flex-direction: column; align-items: stretch; }
+            .entry-body { overflow-x: auto; }
+            .entry-body table { font-size: 12px; min-width: 600px; }
+        }
+        @media print {
+            .app-header, .nav-tabs { display: none; }
+            .patrol-entry { break-inside: avoid; }
+            .main-content { padding: 0; }
+        }
+
+        .empty-state {
+            text-align: center; padding: 40px 20px; color: var(--gray-500);
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+        .form-actions {
+            display: flex; gap: 12px; justify-content: flex-end;
+            padding: 20px 0; flex-wrap: wrap;
+        }
+
+        /* Add entry button */
+        .add-entry-btn {
+            display: flex; align-items: center; gap: 6px; padding: 8px 16px;
+            border: 2px dashed var(--gray-300); border-radius: var(--radius);
+            background: none; cursor: pointer; color: var(--gray-500);
+            font-size: 14px; font-weight: 500; transition: .2s; width: 100%;
+            justify-content: center; margin-bottom: 16px;
+        }
+        .add-entry-btn:hover {
+            border-color: var(--primary); color: var(--primary); background: var(--primary-light);
+        }
+
+        /* Print button style */
+        .print-hide { @media print { display: none !important; } }
+
+        /* Date display */
+        .today-badge {
+            background: var(--primary-light); color: var(--primary);
+            padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <!-- ============================== AUTH PAGE ============================== -->
+    <div id="authPage" class="auth-page">
+        <div class="auth-card">
+            <div class="logo"><span>🏢</span></div>
+            <h1>Patrol Checklist</h1>
+            <p class="subtitle">The Regency · 701 7995 Westminster</p>
+            <div id="authError" class="auth-error"></div>
+            <form id="loginForm">
+                <label for="loginEmail">Email</label>
+                <input type="email" id="loginEmail" placeholder="caretaker@example.com" required />
+                <label for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" placeholder="••••••••" required />
+                <button type="submit" class="btn btn-primary btn-block">Login</button>
+            </form>
+            <p style="text-align:center;margin-top:16px;font-size:13px;color:var(--gray-500);">
+                Contact admin to get an account
+            </p>
+        </div>
+    </div>
+
+    <!-- ============================== APP ============================== -->
+    <div id="app" class="app">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="brand">
+                🏢 Patrol <small>· The Regency</small>
+            </div>
+            <div class="user-info">
+                <span class="name" id="displayName"></span>
+                <span class="role-badge" id="roleBadge">Caretaker</span>
+                <button class="btn btn-outline btn-sm" onclick="handleLogout()">Logout</button>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs" id="navTabs">
+            <button class="active" data-page="patrol">📋 Today's Patrol</button>
+            <button data-page="history">📜 History</button>
+            <button data-page="admin" id="adminTab" style="display:none">⚙️ Admin</button>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content">
+
+            <!-- ===== PAGE: Patrol (Today's Log) ===== -->
+            <div id="pagePatrol" class="page active">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+                    <div>
+                        <h2 style="font-size:20px;">Today's Patrol Log</h2>
+                        <p style="font-size:13px;color:var(--gray-500);" id="todayDateDisplay"></p>
+                    </div>
+                    <span class="today-badge" id="shiftDisplay">Day Shift</span>
+                </div>
+
+                <!-- Patrol Entries -->
+                <div id="patrolEntriesContainer"></div>
+
+                <button class="add-entry-btn" onclick="addPatrolEntry()">+ Add Patrol Entry</button>
+
+                <!-- Daily Summary -->
+                <div class="summary-section">
+                    <h2>📝 Daily Summary</h2>
+                    <label style="font-size:14px;font-weight:600;">Any unusual activities observed?</label>
+                    <textarea id="summaryUnusual" placeholder="Describe any unusual observations (or write 'None')"></textarea>
+                    <label style="font-size:14px;font-weight:600;">Unauthorized individuals noticed?</label>
+                    <textarea id="summaryUnauthorized" placeholder="Describe any unauthorized persons (or write 'None')"></textarea>
+                    <label style="font-size:14px;font-weight:600;">Damages, lights out, or safety hazards?</label>
+                    <textarea id="summaryHazards" placeholder="Describe any damages or hazards (or write 'None')"></textarea>
+                    <div class="sig-area">
+                        <label>Caretaker Signature:</label>
+                        <input type="text" id="signatureName" placeholder="Type your name" style="min-width:200px;" />
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button class="btn btn-success" onclick="submitTodayPatrol()">✅ Submit Today's Patrol</button>
+                    <button class="btn btn-outline" onclick="saveDraft()">💾 Save Draft</button>
+                </div>
+            </div>
+
+            <!-- ===== PAGE: History ===== -->
+            <div id="pageHistory" class="page">
+                <h2 style="font-size:20px;margin-bottom:16px;">📜 Patrol History</h2>
+                <div class="history-filters">
+                    <div class="filter-group">
+                        <label>From Date</label>
+                        <input type="date" id="filterFrom" />
+                    </div>
+                    <div class="filter-group">
+                        <label>To Date</label>
+                        <input type="date" id="filterTo" />
+                    </div>
+                    <div class="filter-group" id="filterUserGroup" style="display:none;">
+                        <label>Caretaker</label>
+                        <select id="filterUser"><option value="">All</option></select>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="loadHistory()">🔍 Search</button>
+                </div>
+                <div id="historyContent">
+                    <div class="empty-state"><div class="icon">📋</div><p>Select date range and click Search</p></div>
+                </div>
+            </div>
+
+            <!-- ===== PAGE: Admin ===== -->
+            <div id="pageAdmin" class="page">
+                <h2 style="font-size:20px;margin-bottom:16px;">⚙️ Admin Panel</h2>
+
+                <div class="admin-section">
+                    <h3>👤 Caretaker Management</h3>
+                    <button class="btn btn-primary btn-sm" onclick="showAddUserModal()" style="margin-bottom:12px;">+ Add Caretaker</button>
+                    <div id="usersList"><div class="loading"><div class="spinner"></div>Loading...</div></div>
+                </div>
+
+                <div class="admin-section">
+                    <h3>📊 Statistics Overview</h3>
+                    <div id="adminStats">
+                        <div class="stats-grid">
+                            <div class="stat-card"><div class="num" id="statUsers">-</div><div class="label">Total Users</div></div>
+                            <div class="stat-card"><div class="num" id="statToday">-</div><div class="label">Today's Patrols</div></div>
+                            <div class="stat-card"><div class="num" id="statWeek">-</div><div class="label">This Week</div></div>
+                            <div class="stat-card"><div class="num" id="statMonth">-</div><div class="label">This Month</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ============================== MODAL ============================== -->
+    <div id="modalOverlay" class="modal-overlay">
+        <div class="modal-card">
+            <h2 id="modalTitle">Add Caretaker</h2>
+            <form id="modalForm">
+                <label>Email</label>
+                <input type="email" id="modalEmail" required />
+                <label>Display Name</label>
+                <input type="text" id="modalDisplayName" required />
+                <label>Password</label>
+                <input type="password" id="modalPassword" placeholder="Leave blank to keep unchanged (edit mode)" />
+                <label>Role</label>
+                <select id="modalRole">
+                    <option value="caretaker">Caretaker</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <input type="hidden" id="modalUserId" />
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================== TOAST ============================== -->
+    <div id="toast" class="toast"></div>
+
+    <!-- ============================== JS ============================== -->
+    <script src="js/supabase-client.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        /* ===== Main Application Logic ===== */
+        const TODAY = new Date().toISOString().split('T')[0];
+        const SHIFTS = ['Day Shift', 'Afternoon Shift', 'Night Shift'];
+
+        // ===== State =====
+        let currentUser = null;
+        let patrolEntries = [];
+        let isSubmitting = false;
+
+        // ===== Initialize =====
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initSupabase();
+            checkSession();
+
+            // Tab switching
+            document.querySelectorAll('[data-page]').forEach(btn => {
+                btn.addEventListener('click', () => switchPage(btn.dataset.page));
+            });
+
+            // Login form
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                await handleLogin(email, password);
+            });
+
+            // Modal form
+            document.getElementById('modalForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await handleSaveUser();
+            });
+
+            // History filters
+            document.getElementById('filterFrom').value = getWeekAgo();
+            document.getElementById('filterTo').value = TODAY;
+        });
+
+        // ===== Session Management =====
+        async function checkSession() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (session?.user) {
+                    await loadUserProfile(session.user);
+                } else {
+                    showAuth();
+                }
+            } catch (e) {
+                console.error('Session check error:', e);
+                showAuth();
+            }
+        }
+
+        async function loadUserProfile(user) {
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (error || !profile) {
+                console.error('Profile load error:', error);
+                showAuth();
+                return;
+            }
+
+            currentUser = { ...user, profile };
+            showApp();
+            document.getElementById('displayName').textContent = profile.display_name || profile.username;
+            const badge = document.getElementById('roleBadge');
+            if (profile.role === 'admin') {
+                badge.textContent = 'Admin';
+                badge.className = 'role-badge admin';
+                document.getElementById('adminTab').style.display = '';
+                document.getElementById('filterUserGroup').style.display = '';
+            } else {
+                badge.textContent = 'Caretaker';
+                badge.className = 'role-badge';
+            }
+
+            // Load initial data
+            document.getElementById('todayDateDisplay').textContent = new Date().toLocaleDateString('en-US', {
+                year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+            });
+
+            await loadCheckTodayStatus();
+            await loadHistory();
+            if (profile.role === 'admin') {
+                await loadAdminData();
+                await loadUsersList();
+            }
+        }
+
+        // ===== Page Switching =====
+        function switchPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('[data-page]').forEach(b => b.classList.remove('active'));
+            document.getElementById(`page${page.charAt(0).toUpperCase() + page.slice(1)}`).classList.add('active');
+            document.querySelector(`[data-page="${page}"]`).classList.add('active');
+
+            if (page === 'history') loadHistory();
+            if (page === 'admin' && currentUser?.profile?.role === 'admin') {
+                loadAdminData();
+                loadUsersList();
+            }
+        }
+
+        // ===== Patrol Entries Management =====
+        function addPatrolEntry(data = null) {
+            const num = patrolEntries.length + 1;
+            const entry = {
+                id: data?.id || `new_${Date.now()}_${num}`,
+                date: data?.date || TODAY,
+                timeStart: data?.timeStart || '',
+                timeEnd: data?.timeEnd || '',
+                areas: data?.areas || [],
+                observation: data?.observation || '',
+                actionTaken: data?.actionTaken || '',
+                signature: data?.signature || ''
+            };
+            patrolEntries.push(entry);
+            renderPatrolEntries();
+        }
+
+        function removePatrolEntry(id) {
+            patrolEntries = patrolEntries.filter(e => e.id !== id);
+            renderPatrolEntries();
+        }
+
+        function renderPatrolEntries() {
+            const container = document.getElementById('patrolEntriesContainer');
+            if (patrolEntries.length === 0) {
+                container.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>No patrol entries yet. Click the button below to add one.</p></div>`;
+                return;
+            }
+
+            let html = '';
+            patrolEntries.forEach((entry, idx) => {
+                const areas = ['Garbage Area', 'Parkade-P1', 'Parkade-P2', 'Parkade-P3',
+                              'Parkade-P4', 'Parkade-P5', 'Parkade-P6', 'Other'];
+                html += `
+                    <div class="patrol-entry">
+                        <div class="entry-header">
+                            <span class="entry-num">#${idx + 1} Patrol Entry</span>
+                            <div class="entry-fields">
+                                <input type="date" value="${entry.date}" onchange="updateEntry('${entry.id}', 'date', this.value)" />
+                                <input type="time" value="${entry.timeStart}" placeholder="Start" onchange="updateEntry('${entry.id}', 'timeStart', this.value)" style="width:100px;" />
+                                <span style="color:var(--gray-500);">→</span>
+                                <input type="time" value="${entry.timeEnd}" placeholder="End" onchange="updateEntry('${entry.id}', 'timeEnd', this.value)" style="width:100px;" />
+                            </div>
+                            <button class="btn btn-danger btn-sm" onclick="removePatrolEntry('${entry.id}')">✕ Delete</button>
+                        </div>
+                        <div class="entry-body">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style="width:200px;">Patrol Area(s)</th>
+                                        <th>Observation / Incident</th>
+                                        <th>Action Taken</th>
+                                        <th style="width:120px;">Signature</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <div class="area-checkbox">
+                                                ${areas.map(a => `
+                                                    <label>
+                                                        <input type="checkbox" ${entry.areas.includes(a) ? 'checked' : ''}
+                                                            onchange="toggleArea('${entry.id}', '${a}')" />
+                                                        ${a}
+                                                    </label>
+                                                `).join('')}
+                                            </div>
+                                        </td>
+                                        <td><input type="text" value="${entry.observation}" placeholder="Describe your observation" onchange="updateEntry('${entry.id}', 'observation', this.value)" /></td>
+                                        <td><input type="text" value="${entry.actionTaken}" placeholder="Actions taken" onchange="updateEntry('${entry.id}', 'actionTaken', this.value)" /></td>
+                                        <td><input type="text" value="${entry.signature}" placeholder="Signature" onchange="updateEntry('${entry.id}', 'signature', this.value)" /></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function updateEntry(id, field, value) {
+            const entry = patrolEntries.find(e => e.id === id);
+            if (entry) entry[field] = value;
+        }
+
+        function toggleArea(id, area) {
+            const entry = patrolEntries.find(e => e.id === id);
+            if (!entry) return;
+            const idx = entry.areas.indexOf(area);
+            if (idx > -1) entry.areas.splice(idx, 1);
+            else entry.areas.push(area);
+        }
+
+        // ===== Submit / Save =====
+        async function submitTodayPatrol() {
+            if (isSubmitting) return;
+            if (patrolEntries.length === 0) {
+                showToast('Please add at least one patrol entry', 'error');
+                return;
+            }
+
+            const signature = document.getElementById('signatureName').value.trim();
+            if (!signature) {
+                showToast('Please sign your name', 'error');
+                return;
+            }
+
+            isSubmitting = true;
+            try {
+                const payload = {
+                    patrol_date: TODAY,
+                    user_id: currentUser.id,
+                    status: 'Submitted',
+                    shift: 'Day Shift',
+                    patrol_data: {
+                        entries: patrolEntries.map(e => ({
+                            date: e.date,
+                            time_start: e.timeStart,
+                            time_end: e.timeEnd,
+                            areas: e.areas.join(', '),
+                            observation: e.observation,
+                            action_taken: e.actionTaken,
+                            signature: e.signature || signature
+                        })),
+                        summary: {
+                            unusual: document.getElementById('summaryUnusual').value,
+                            unauthorized: document.getElementById('summaryUnauthorized').value,
+                            hazards: document.getElementById('summaryHazards').value
+                        }
+                    },
+                    caretaker_signature: signature
+                };
+
+                const { data, error } = await supabase
+                    .from('patrols')
+                    .insert(payload)
+                    .select();
+
+                if (error) {
+                    // Check if duplicate (already submitted today)
+                    if (error.code === '23505') {
+                        showToast('⚠️ Todays patrol already submitted', 'info');
+                    } else {
+                        throw error;
+                    }
+                    return;
+                }
+
+                showToast('✅ Todays patrol submitted!', 'success');
+                // Clear draft and form
+                localStorage.removeItem('patrol_draft_' + TODAY);
+                patrolEntries = [];
+                document.getElementById('summaryUnusual').value = '';
+                document.getElementById('summaryUnauthorized').value = '';
+                document.getElementById('summaryHazards').value = '';
+                document.getElementById('signatureName').value = '';
+                renderPatrolEntries();
+                document.getElementById('shiftDisplay').textContent = '✅ Submitted';
+            } catch (e) {
+                console.error('Submit error:', e);
+                showToast(e.message || 'Submission failed, please try again', 'error');
+            } finally {
+                isSubmitting = false;
+            }
+        }
+
+        function saveDraft() {
+            const draft = {
+                entries: patrolEntries,
+                summary: {
+                    unusual: document.getElementById('summaryUnusual').value,
+                    unauthorized: document.getElementById('summaryUnauthorized').value,
+                    hazards: document.getElementById('summaryHazards').value
+                },
+                signature: document.getElementById('signatureName').value,
+                savedAt: new Date().toISOString()
+            };
+            localStorage.setItem('patrol_draft_' + TODAY, JSON.stringify(draft));
+            showToast('💾 Draft saved locally', 'info');
+        }
+
+        function loadDraft() {
+            const saved = localStorage.getItem('patrol_draft_' + TODAY);
+            if (saved) {
+                try {
+                    const draft = JSON.parse(saved);
+                    if (draft.entries?.length > 0) {
+                        patrolEntries = draft.entries;
+                        renderPatrolEntries();
+                        document.getElementById('summaryUnusual').value = draft.summary?.unusual || '';
+                        document.getElementById('summaryUnauthorized').value = draft.summary?.unauthorized || '';
+                        document.getElementById('summaryHazards').value = draft.summary?.hazards || '';
+                        document.getElementById('signatureName').value = draft.signature || '';
+                        showToast('💾 Draft restored from local storage', 'info');
+                    }
+                } catch (e) { /* ignore */ }
+            }
+        }
+
+        // ===== Check Today Status =====
+        async function loadCheckTodayStatus() {
+            try {
+                const { data, error } = await supabase
+                    .from('patrols')
+                    .select('id, patrol_date, created_at, status')
+                    .eq('user_id', currentUser.id)
+                    .eq('patrol_date', TODAY)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                if (data && data.length > 0) {
+                    // Already submitted today, show view mode
+                    document.getElementById('shiftDisplay').textContent = '✅ Submitted';
+                    // Could switch to view mode
+                } else {
+                    document.getElementById('shiftDisplay').textContent = '📝 Pending';
+                    loadDraft(); // Restore draft if any
+                }
+            } catch (e) {
+                console.error('Check status error:', e);
+            }
+        }
+
+        // ===== History =====
+        async function loadHistory() {
+            const container = document.getElementById('historyContent');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+            try {
+                const fromDate = document.getElementById('filterFrom').value || getWeekAgo();
+                const toDate = document.getElementById('filterTo').value || TODAY;
+
+                let query = supabase
+                    .from('patrols')
+                    .select(`
+                        id, patrol_date, created_at, status,
+                        user_id,
+                        profiles:user_id (display_name, username)
+                    `)
+                    .gte('patrol_date', fromDate)
+                    .lte('patrol_date', toDate)
+                    .order('patrol_date', { ascending: false })
+                    .order('created_at', { ascending: false });
+
+                // If caretaker (not admin), only show own
+                if (currentUser.profile.role !== 'admin') {
+                    query = query.eq('user_id', currentUser.id);
+                } else {
+                    const filterUser = document.getElementById('filterUser').value;
+                    if (filterUser) query = query.eq('user_id', filterUser);
+                }
+
+                const { data, error } = await query;
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><div class="icon">📜</div><p>No patrol records found</p></div>';
+                    return;
+                }
+
+                let html = `<table class="history-table">
+                    <thead><tr>
+                        <th>Date</th>
+                        <th>Caretaker</th>
+                        <th>Status</th>
+                        <th>Submitted At</th>
+                        <th>Actions</th>
+                    </tr></thead><tbody>`;
+
+                for (const patrol of data) {
+                    const name = patrol.profiles?.display_name || patrol.profiles?.username || 'Unknown';
+                    const statusLabel = patrol.status === 'Submitted' ? 'Submitted' : 'Draft';
+                    const statusClass = patrol.status === 'Submitted' ? 'badge-success' : 'badge-warning';
+                    html += `<tr>
+                        <td>${patrol.patrol_date}</td>
+                        <td>${name}</td>
+                        <td><span class="${statusClass}">${statusLabel}</span></td>
+                        <td>${new Date(patrol.created_at).toLocaleString('en-US')}</td>
+                        <td><button class="btn btn-outline btn-sm" onclick="viewPatrol(${patrol.id})">View</button></td>
+                    </tr>`;
+                }
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (e) {
+                console.error('History load error:', e);
+                container.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Failed to load: ${e.message}</p></div>`;
+            }
+        }
+
+        async function viewPatrol(patrolId) {
+            try {
+                const { data: patrol, error } = await supabase
+                    .from('patrols')
+                    .select(`
+                        *,
+                        patrol_results (*),
+                        checklist_items (*),
+                        profiles:user_id (display_name, username)
+                    `)
+                    .eq('id', patrolId)
+                    .single();
+
+                if (error) throw error;
+
+                // Simple detail view in an alert-like modal
+                const entries = patrol.patrol_results || [];
+                let detailHtml = `
+                    <div style="font-size:13px;line-height:1.8;">
+                        <p><strong>Date:</strong> ${patrol.patrol_date}</p>
+                        <p><strong>Caretaker:</strong> ${patrol.profiles?.display_name || patrol.profiles?.username}</p>
+                        <p><strong>Status:</strong> ${patrol.status}</p>
+                        <hr style="margin:12px 0;" />
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                            <thead><tr style="background:var(--gray-100);">
+                                <th style="padding:6px;text-align:left;">Item</th>
+                                <th style="padding:6px;text-align:left;">Result</th>
+                                <th style="padding:6px;text-align:left;">Notes</th>
+                            </tr></thead><tbody>
+                `;
+                for (const r of entries) {
+                    const itemName = r.checklist_items?.item_name || r.item_name || 'Unknown';
+                    detailHtml += `<tr><td style="padding:4px 6px;border-bottom:1px solid var(--gray-200);">${itemName}</td>
+                        <td style="padding:4px 6px;border-bottom:1px solid var(--gray-200);">${r.result}</td>
+                        <td style="padding:4px 6px;border-bottom:1px solid var(--gray-200);">${r.notes || '-'}</td></tr>`;
+                }
+                detailHtml += `</tbody></table></div>`;
+
+                showModal('📋 Patrol Detail #' + patrolId, detailHtml);
+            } catch (e) {
+                showToast('Failed to load details', 'error');
+            }
+        }
+
+        // ===== Admin Functions =====
+        async function loadAdminData() {
+            try {
+                const { count: usersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+                document.getElementById('statUsers').textContent = usersCount || 0;
+
+                const todayStr = TODAY;
+                const weekAgo = getWeekAgo();
+                const monthAgo = getMonthAgo();
+
+                const { count: todayCount } = await supabase.from('patrols').select('*', { count: 'exact', head: true }).eq('patrol_date', todayStr);
+                document.getElementById('statToday').textContent = todayCount || 0;
+
+                const { count: weekCount } = await supabase.from('patrols').select('*', { count: 'exact', head: true }).gte('patrol_date', weekAgo);
+                document.getElementById('statWeek').textContent = weekCount || 0;
+
+                const { count: monthCount } = await supabase.from('patrols').select('*', { count: 'exact', head: true }).gte('patrol_date', monthAgo);
+                document.getElementById('statMonth').textContent = monthCount || 0;
+            } catch (e) {
+                console.error('Admin stats error:', e);
+            }
+        }
+
+        async function loadUsersList() {
+            const container = document.getElementById('usersList');
+            try {
+                const { data: users, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .order('created_at', { ascending: true });
+
+                if (error) throw error;
+
+                if (!users || users.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><p>No users found</p></div>';
+                    return;
+                }
+
+                // Also populate filter dropdown
+                const filterSelect = document.getElementById('filterUser');
+                const currentVal = filterSelect.value;
+                filterSelect.innerHTML = '<option value="">All Caretakers</option>';
+                users.filter(u => u.role === 'caretaker').forEach(u => {
+                    filterSelect.innerHTML += `<option value="${u.id}">${u.display_name || u.username}</option>`;
+                });
+                filterSelect.value = currentVal;
+
+                let html = `<table class="admin-table">
+                    <thead><tr>
+                        <th>Username</th>
+                        <th>Display Name</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr></thead><tbody>`;
+                for (const u of users) {
+                    html += `<tr>
+                        <td>${u.username}</td>
+                        <td>${u.display_name}</td>
+                        <td>${u.role === 'admin' ? 'Admin' : 'Caretaker'}</td>
+                        <td>${u.is_active ? '✅ Active' : '❌ Disabled'}</td>
+                        <td>
+                            <button class="btn btn-outline btn-sm" onclick="editUser('${u.id}')">Edit</button>
+                            <button class="btn btn-outline btn-sm" onclick="toggleUserActive('${u.id}', ${u.is_active})">
+                                ${u.is_active ? 'Disable' : 'Enable'}
+                            </button>
+                        </td>
+                    </tr>`;
+                }
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = `<div class="empty-state">Failed to load: ${e.message}</div>`;
+            }
+        }
+
+        function showAddUserModal() {
+            document.getElementById('modalTitle').textContent = 'Add Caretaker';
+            document.getElementById('modalUserId').value = '';
+            document.getElementById('modalEmail').value = '';
+            document.getElementById('modalDisplayName').value = '';
+            document.getElementById('modalPassword').value = '';
+            document.getElementById('modalPassword').placeholder = 'Password (required)';
+            document.getElementById('modalRole').value = 'caretaker';
+            document.getElementById('modalOverlay').classList.add('show');
+        }
+
+        function editUser(userId) {
+            // Fetch user data and populate modal
+            showToast('Edit: loading user data...', 'info');
+            // For now, redirect to add modal with prefill logic
+            window.editUserId = userId;
+            document.getElementById('modalTitle').textContent = 'Edit Caretaker';
+            document.getElementById('modalUserId').value = userId;
+            document.getElementById('modalPassword').placeholder = 'Leave blank to keep current password';
+            document.getElementById('modalOverlay').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('show');
+        }
+
+        async function handleSaveUser() {
+            const userId = document.getElementById('modalUserId').value;
+            const email = document.getElementById('modalEmail').value;
+            const displayName = document.getElementById('modalDisplayName').value;
+            const password = document.getElementById('modalPassword').value;
+            const role = document.getElementById('modalRole').value;
+
+            try {
+                if (userId) {
+                    // Update existing user - just profile info
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({ display_name: displayName, role })
+                        .eq('id', userId);
+                    if (error) throw error;
+                    if (password) {
+                        const { error: authError } = await supabase.auth.admin.updateUserById(userId, { password });
+                        if (authError) throw authError;
+                    }
+                    showToast('User updated', 'success');
+                } else {
+                    // Create new user via signup
+                    const { data, error } = await supabase.auth.admin.createUser({
+                        email,
+                        password,
+                        email_confirm: true,
+                        user_metadata: { display_name: displayName, role }
+                    });
+                    if (error) throw error;
+                    showToast('User created successfully', 'success');
+                }
+                closeModal();
+                await loadUsersList();
+                await loadAdminData();
+            } catch (e) {
+                showToast(e.message || 'Operation failed', 'error');
+            }
+        }
+
+        async function toggleUserActive(userId, currentActive) {
+            try {
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ is_active: !currentActive })
+                    .eq('id', userId);
+                if (error) throw error;
+                showToast(currentActive ? 'User disabled' : 'User enabled', 'success');
+                await loadUsersList();
+            } catch (e) {
+                showToast('Operation failed', 'error');
+            }
+        }
+
+        // ===== Login / Logout =====
+        async function handleLogin(email, password) {
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) {
+                    document.getElementById('authError').textContent = getErrorMessage(error);
+                    document.getElementById('authError').style.display = 'block';
+                    return;
+                }
+                document.getElementById('authError').style.display = 'none';
+                await loadUserProfile(data.user);
+            } catch (e) {
+                document.getElementById('authError').textContent = 'Login failed, check network connection';
+                document.getElementById('authError').style.display = 'block';
+            }
+        }
+
+        async function handleLogout() {
+            await supabase.auth.signOut();
+            currentUser = null;
+            showAuth();
+        }
+
+        // ===== UI Helpers =====
+        function showAuth() {
+            document.getElementById('authPage').style.display = 'flex';
+            document.getElementById('app').style.display = 'none';
+        }
+
+        function showApp() {
+            document.getElementById('authPage').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 4000);
+        }
+
+        function showModal(title, bodyHtml) {
+            const overlay = document.getElementById('modalOverlay');
+            document.getElementById('modalTitle').textContent = title;
+            // Replace the form content with just the view
+            const form = document.getElementById('modalForm');
+            form.innerHTML = `
+                <div style="margin-bottom:16px;">${bodyHtml}</div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal()">Close</button>
+                </div>
+            `;
+            // Don't show as form submit
+            form.onsubmit = (e) => e.preventDefault();
+            overlay.classList.add('show');
+        }
+
+        function getErrorMessage(error) {
+            const messages = {
+                'Invalid login credentials': 'Invalid email or password',
+                'Email not confirmed': 'Email not yet verified',
+                'User not found': 'User not found'
+            };
+            return messages[error.message] || error.message || 'Login failed';
+        }
+
+        function getWeekAgo() {
+            const d = new Date(); d.setDate(d.getDate() - 7);
+            return d.toISOString().split('T')[0];
+        }
+
+        function getMonthAgo() {
+            const d = new Date(); d.setMonth(d.getMonth() - 1);
+            return d.toISOString().split('T')[0];
+        }
+
+        // Click outside modal to close
+        document.getElementById('modalOverlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('modalOverlay')) closeModal();
+        });
+    </script>
+</body>
+</html>
