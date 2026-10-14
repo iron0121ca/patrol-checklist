@@ -107,6 +107,16 @@
         .admin-table { width: 100%; border-collapse: collapse; }
         .admin-table th, .admin-table td { border-bottom: 1px solid var(--gray-200); padding: 10px; text-align: left; }
         .admin-table th { color: var(--gray-500); font-size: 13px; }
+        .history-date-display { display: inline-flex; align-items: center; gap: 6px; }
+        .history-date-edit {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 32px; min-height: 32px; border: 0; border-radius: 6px;
+            background: transparent; color: var(--primary); font-size: 18px; cursor: pointer;
+        }
+        .history-date-edit:hover { background: var(--primary-light); }
+        .history-date-edit:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .date-edit-error { color: var(--danger); font-size: 14px; }
+        .date-edit-error:empty { display: none; }
 
         .modal-overlay {
             position: fixed; inset: 0; background: rgba(17, 24, 39, 0.55); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50;
@@ -132,6 +142,32 @@
             .patrol-table td:last-child { border-bottom: none; }
             .app-header { padding: 10px 16px; }
             .user-info { gap: 8px; }
+            #historyList .admin-table,
+            #historyList .admin-table tbody,
+            #historyList .admin-table tr,
+            #historyList .admin-table td { display: block; width: 100%; }
+            #historyList .admin-table thead { display: none; }
+            #historyList .admin-table tr {
+                border: 1px solid var(--gray-300);
+                border-radius: 8px;
+                margin-bottom: 12px;
+                padding: 8px;
+            }
+            #historyList .admin-table td {
+                display: grid;
+                grid-template-columns: 112px minmax(0, 1fr);
+                gap: 8px;
+                padding: 8px 4px;
+                overflow-wrap: anywhere;
+            }
+            #historyList .admin-table td::before { color: var(--gray-500); font-weight: 700; }
+            #historyList .admin-table td:nth-child(1)::before { content: "Date"; }
+            #historyList .admin-table td:nth-child(2)::before { content: "Name"; }
+            #historyList .admin-table td:nth-child(3)::before { content: "Area"; }
+            #historyList .admin-table td:nth-child(4)::before { content: "Observation"; }
+            #historyList .admin-table td:nth-child(5)::before { content: "Action Taken"; }
+            #historyList .admin-table td:nth-child(6)::before { content: "Signature"; }
+            #historyList .history-date-display { flex-wrap: wrap; }
         }
     </style>
 </head>
@@ -140,7 +176,7 @@
         <div class="auth-card">
             <div class="logo">🏢</div>
             <h1>Patrol Checklist</h1>
-            <p class="subtitle">The Regency · 701 7995 Westminster</p>
+            <p class="subtitle">The Regency · LMS1665</p>
             <div id="authError" class="auth-error"></div>
             <form id="loginForm">
                 <label for="loginEmail">Email</label>
@@ -187,29 +223,67 @@
                         <table class="patrol-table">
                             <thead>
                                 <tr>
-                                    <th class="area-col">Patrol Area(s)</th>
+                                    <th class="area-col">Patrol Area</th>
                                     <th class="obs-col">Observation / Incident</th>
                                     <th class="action-col">Action Taken</th>
-                                    <th class="sig-col">Signature</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
+                                <tr class="area-row" data-area="Garbage Area">
                                     <td class="area-col">
-                                        <div class="area-list">
-                                            <label class="area-item"><input type="checkbox" /> Garbage Area</label>
-                                            <label class="area-item"><input type="checkbox" /> Parkade-P1</label>
-                                            <label class="area-item"><input type="checkbox" /> Parkade-P2</label>
-                                            <label class="area-item"><input type="checkbox" /> Parkade-P3</label>
-                                            <label class="area-item"><input type="checkbox" /> Parkade-P4</label>
-                                            <label class="area-item"><input type="checkbox" /> Parkade-P5</label>
-                                            <label class="area-item"><input type="checkbox" /> Parkade-P6</label>
-                                            <label class="area-item"><input type="checkbox" /> Other</label>
-                                        </div>
+                                        <span class="area-item">Garbage Area</span>
                                     </td>
-                                    <td class="obs-col"><textarea placeholder="Observation / Incident"></textarea></td>
-                                    <td class="action-col"><textarea placeholder="Action Taken"></textarea></td>
-                                    <td class="sig-col"><input class="signature-input" type="text" placeholder="Signature" /></td>
+                                    <td class="obs-col"><textarea data-role="observation" placeholder="Observation / Incident"></textarea></td>
+                                    <td class="action-col"><textarea data-role="action" placeholder="Action Taken"></textarea></td>
+                                </tr>
+                                <tr class="area-row" data-area="Parkade-P1">
+                                    <td class="area-col">
+                                        <span class="area-item">Parkade-P1</span>
+                                    </td>
+                                    <td class="obs-col"><textarea data-role="observation" placeholder="Observation / Incident"></textarea></td>
+                                    <td class="action-col"><textarea data-role="action" placeholder="Action Taken"></textarea></td>
+                                </tr>
+                                <tr class="area-row" data-area="Parkade-P2">
+                                    <td class="area-col">
+                                        <span class="area-item">Parkade-P2</span>
+                                    </td>
+                                    <td class="obs-col"><textarea data-role="observation" placeholder="Observation / Incident"></textarea></td>
+                                    <td class="action-col"><textarea data-role="action" placeholder="Action Taken"></textarea></td>
+                                </tr>
+                                <tr class="area-row" data-area="Parkade-P3">
+                                    <td class="area-col">
+                                        <span class="area-item">Parkade-P3</span>
+                                    </td>
+                                    <td class="obs-col"><textarea data-role="observation" placeholder="Observation / Incident"></textarea></td>
+                                    <td class="action-col"><textarea data-role="action" placeholder="Action Taken"></textarea></td>
+                                </tr>
+                                <tr class="area-row" data-area="Parkade-P4">
+                                    <td class="area-col">
+                                        <span class="area-item">Parkade-P4</span>
+                                    </td>
+                                    <td class="obs-col"><textarea data-role="observation" placeholder="Observation / Incident"></textarea></td>
+                                    <td class="action-col"><textarea data-role="action" placeholder="Action Taken"></textarea></td>
+                                </tr>
+                                <tr class="area-row" data-area="Parkade-P5">
+                                    <td class="area-col">
+                                        <span class="area-item">Parkade-P5</span>
+                                    </td>
+                                    <td class="obs-col"><textarea data-role="observation" placeholder="Observation / Incident"></textarea></td>
+                                    <td class="action-col"><textarea data-role="action" placeholder="Action Taken"></textarea></td>
+                                </tr>
+                                <tr class="area-row" data-area="Parkade-P6">
+                                    <td class="area-col">
+                                        <span class="area-item">Parkade-P6</span>
+                                    </td>
+                                    <td class="obs-col"><textarea data-role="observation" placeholder="Observation / Incident"></textarea></td>
+                                    <td class="action-col"><textarea data-role="action" placeholder="Action Taken"></textarea></td>
+                                </tr>
+                                <tr class="area-row" data-area="Other">
+                                    <td class="area-col">
+                                        <span class="area-item">Other</span>
+                                    </td>
+                                    <td class="obs-col"><textarea data-role="observation" placeholder="Observation / Incident"></textarea></td>
+                                    <td class="action-col"><textarea data-role="action" placeholder="Action Taken"></textarea></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -225,6 +299,15 @@
                         </div>
 
                         <p id="status" class="status" aria-live="polite"></p>
+                    </div>
+                </div>
+
+                <div class="admin-section" style="margin-top: 18px;">
+                    <div class="admin-header">
+                        <h3>📜 Patrol History</h3>
+                    </div>
+                    <div id="historyList">
+                        <div class="loading">Loading patrol history...</div>
                     </div>
                 </div>
             </div>
@@ -267,12 +350,29 @@
         </div>
     </div>
 
+    <div id="historyDateModal" class="modal-overlay" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="historyDateTitle">
+            <h2 id="historyDateTitle">Edit Patrol Date</h2>
+            <form id="historyDateForm">
+                <label for="historyDateInput">Date</label>
+                <input id="historyDateInput" type="date" required />
+                <p id="historyDateError" class="date-edit-error" aria-live="polite"></p>
+                <div class="modal-actions">
+                    <button id="cancelHistoryDate" type="button" class="btn btn-outline">Cancel</button>
+                    <button id="saveHistoryDate" type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="toast" class="toast"></div>
 
     <script src="js/supabase-client.js"></script>
     <script src="js/auth.js"></script>
     <script>
         let currentUser = null;
+        let historyRecordsById = new Map();
+        let editingPatrolId = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
             await initSupabase();
@@ -291,12 +391,153 @@
             document.getElementById('modalOverlay').addEventListener('click', (event) => {
                 if (event.target === document.getElementById('modalOverlay')) closeModal();
             });
+            document.getElementById('historyList').addEventListener('click', (event) => {
+                const button = event.target.closest('.history-date-edit');
+                if (button) openHistoryDateEditor(button.dataset.recordId);
+            });
+            document.getElementById('historyDateForm').addEventListener('submit', saveHistoryDate);
+            document.getElementById('cancelHistoryDate').addEventListener('click', closeHistoryDateEditor);
+            document.getElementById('historyDateModal').addEventListener('click', (event) => {
+                if (event.target === document.getElementById('historyDateModal')) closeHistoryDateEditor();
+            });
 
             document.getElementById('saveBtn').addEventListener('click', savePatrol);
             document.getElementById('clearBtn').addEventListener('click', clearForm);
             restorePatrol();
             await checkSession();
         });
+
+        function renderHistoryDateCell(record) {
+            return `<td><span class="history-date-display"><span>${record.patrol_date}</span><button type="button" class="history-date-edit" data-record-id="${record.id}" aria-label="Edit date ${record.patrol_date}" title="Edit date">✎</button></span></td>`;
+        }
+
+        function openHistoryDateEditor(recordId) {
+            const record = historyRecordsById.get(String(recordId));
+            if (!record) return;
+
+            editingPatrolId = String(recordId);
+            document.getElementById('historyDateInput').value = record.patrol_date;
+            document.getElementById('historyDateError').textContent = '';
+            const modal = document.getElementById('historyDateModal');
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+            document.getElementById('historyDateInput').focus();
+        }
+
+        function closeHistoryDateEditor() {
+            const modal = document.getElementById('historyDateModal');
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+            document.getElementById('historyDateForm').reset();
+            document.getElementById('historyDateError').textContent = '';
+            editingPatrolId = null;
+        }
+
+        async function saveHistoryDate(event) {
+            event.preventDefault();
+            const record = historyRecordsById.get(editingPatrolId);
+            const newDate = document.getElementById('historyDateInput').value;
+            const errorMessage = document.getElementById('historyDateError');
+            if (!record || !newDate) return;
+            if (newDate === record.patrol_date) {
+                closeHistoryDateEditor();
+                return;
+            }
+
+            const saveButton = document.getElementById('saveHistoryDate');
+            saveButton.disabled = true;
+            errorMessage.textContent = '';
+            try {
+                const { error } = await supabase
+                    .from('patrols')
+                    .update({
+                        patrol_date: newDate,
+                        patrol_data: { ...(record.patrol_data || {}), date: newDate }
+                    })
+                    .eq('id', record.id)
+                    .select('id')
+                    .single();
+
+                if (error) throw error;
+                closeHistoryDateEditor();
+                await loadPatrolHistory();
+                showToast('Patrol date updated.', 'success');
+            } catch (error) {
+                errorMessage.textContent = error.code === '23505'
+                    ? 'A patrol already exists for this user on that date.'
+                    : error.message || 'Unable to update patrol date.';
+            } finally {
+                saveButton.disabled = false;
+            }
+        }
+
+        async function loadPatrolHistory() {
+            const container = document.getElementById('historyList');
+            if (!currentUser || !supabase) {
+                container.innerHTML = '<div class="empty-state">Log in to view patrol history.</div>';
+                return;
+            }
+
+            try {
+                let query = supabase
+                    .from('patrols')
+                    .select('id, patrol_date, status, caretaker_signature, patrol_data, profiles:user_id (display_name, username)')
+                    .order('patrol_date', { ascending: false })
+                    .limit(10);
+
+                if (currentUser.profile?.role !== 'admin') {
+                    query = query.eq('user_id', currentUser.id);
+                }
+
+                const { data, error } = await query;
+                if (error) throw error;
+                historyRecordsById = new Map((data || []).map(record => [String(record.id), record]));
+
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No patrol records yet.</div>';
+                    return;
+                }
+
+                const rows = data.flatMap((record) => {
+                    const name = record.profiles?.display_name || record.profiles?.username || 'Unknown';
+                    const entries = Array.isArray(record.patrol_data?.entries) ? record.patrol_data.entries : [];
+                    const dateCell = renderHistoryDateCell(record);
+                    if (!entries.length) {
+                        return [`<tr>${dateCell}<td>${name}</td><td>-</td><td>-</td><td>-</td><td>${record.caretaker_signature || '-'}</td></tr>`];
+                    }
+
+                    return entries.map((entry) => `
+                        <tr>
+                            ${dateCell}
+                            <td>${name}</td>
+                            <td>${entry.area || '-'}</td>
+                            <td>${entry.observation || '-'}</td>
+                            <td>${entry.actionTaken || '-'}</td>
+                            <td>${record.caretaker_signature || entry.signature || '-'}</td>
+                        </tr>
+                    `);
+                }).join('');
+
+                container.innerHTML = `
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Name</th>
+                                <th>Area</th>
+                                <th>Observation</th>
+                                <th>Action Taken</th>
+                                <th>Signature</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('History load failed:', error);
+                container.innerHTML = '<div class="empty-state">Unable to load patrol records.</div>';
+            }
+        }
 
         async function checkSession() {
             const { data: { session } } = await supabase.auth.getSession();
@@ -326,6 +567,7 @@
             document.getElementById('roleBadge').classList.toggle('admin', profile.role === 'admin');
             document.getElementById('adminBtn').style.display = profile.role === 'admin' ? '' : 'none';
             showApp();
+            await loadPatrolHistory();
 
             if (profile.role === 'admin') {
                 await loadUsersList();
@@ -441,10 +683,12 @@
                     email,
                     password,
                     options: {
+                        emailRedirectTo: undefined,
                         data: {
                             display_name: displayName,
                             role
-                        }
+                        },
+                        email_confirm: true
                     }
                 });
                 if (error) throw error;
@@ -472,19 +716,29 @@
         }
 
         function getFormData() {
-            const selectedAreas = Array.from(document.querySelectorAll('.area-item input')).filter(item => item.checked).map(item => item.parentElement.textContent.trim());
+            const entries = [];
+            document.querySelectorAll('.area-row').forEach(row => {
+                const checkbox = row.querySelector('input[type="checkbox"]');
+                const observation = row.querySelector('textarea[data-role="observation"]');
+                const action = row.querySelector('textarea[data-role="action"]');
+                if (checkbox && !checkbox.checked) return;
+                entries.push({
+                    area: row.dataset.area,
+                    observation: observation ? observation.value.trim() : '',
+                    actionTaken: action ? action.value.trim() : ''
+                });
+            });
+
             return {
                 date: document.getElementById('patrolDate').value,
                 name: document.getElementById('caretakerName').value.trim(),
-                selectedAreas,
-                observation: document.querySelectorAll('.patrol-table textarea')[0].value.trim(),
-                actionTaken: document.querySelectorAll('.patrol-table textarea')[1].value.trim(),
-                signature: document.getElementById('finalSignature').value.trim(),
+                signature: document.getElementById('finalSignature')?.value.trim() || '',
+                entries,
                 savedAt: new Date().toISOString()
             };
         }
 
-        function savePatrol() {
+        async function savePatrol() {
             const data = getFormData();
             if (!data.date) {
                 setStatus('Please select a date.', true);
@@ -495,7 +749,42 @@
                 return;
             }
             localStorage.setItem(localStorageKey, JSON.stringify(data));
-            setStatus('Patrol saved successfully.');
+
+            if (!currentUser?.id) {
+                setStatus('Please log in before saving patrol records.', true);
+                return;
+            }
+
+            try {
+                const payload = {
+                    user_id: currentUser.id,
+                    patrol_date: data.date,
+                    status: 'Submitted',
+                    caretaker_signature: data.signature,
+                    patrol_data: {
+                        date: data.date,
+                        name: data.name,
+                        entries: data.entries,
+                        savedAt: data.savedAt
+                    }
+                };
+
+                const { data: savedRow, error } = await supabase
+                    .from('patrols')
+                    .upsert(payload, { onConflict: 'user_id,patrol_date' })
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                setStatus('Patrol saved to database successfully.');
+                await loadPatrolHistory();
+                return savedRow;
+            } catch (error) {
+                console.error('Save patrol failed:', error);
+                setStatus(error.message || 'Failed to save patrol record.', true);
+                return null;
+            }
         }
 
         function restorePatrol() {
@@ -507,13 +796,21 @@
                 if (data.date) document.getElementById('patrolDate').value = data.date;
                 if (data.name) document.getElementById('caretakerName').value = data.name;
                 if (data.signature) document.getElementById('finalSignature').value = data.signature;
-                Array.from(document.querySelectorAll('.area-item input')).forEach(input => {
-                    const labelText = input.parentElement.textContent.trim();
-                    input.checked = Array.isArray(data.selectedAreas) && data.selectedAreas.includes(labelText);
+
+                const rows = Array.from(document.querySelectorAll('.area-row'));
+                const savedEntries = Array.isArray(data.entries) ? data.entries : [];
+
+                rows.forEach(row => {
+                    const checkbox = row.querySelector('input[type="checkbox"]');
+                    const observation = row.querySelector('textarea[data-role="observation"]');
+                    const action = row.querySelector('textarea[data-role="action"]');
+                    const match = savedEntries.find(entry => entry.area === row.dataset.area);
+                    const checked = !!match || (Array.isArray(data.selectedAreas) && data.selectedAreas.includes(row.dataset.area));
+                    if (checkbox) checkbox.checked = checked;
+                    if (observation) observation.value = match ? (match.observation || '') : '';
+                    if (action) action.value = match ? (match.actionTaken || '') : '';
                 });
-                const textareas = document.querySelectorAll('.patrol-table textarea');
-                if (textareas[0] && data.observation) textareas[0].value = data.observation;
-                if (textareas[1] && data.actionTaken) textareas[1].value = data.actionTaken;
+
                 setStatus('Previous patrol record restored.');
             } catch (e) {
                 console.error('Failed to restore patrol', e);
@@ -524,8 +821,14 @@
             document.getElementById('patrolDate').value = new Date().toISOString().split('T')[0];
             document.getElementById('caretakerName').value = '';
             document.getElementById('finalSignature').value = '';
-            document.querySelectorAll('.area-item input').forEach(item => item.checked = false);
-            document.querySelectorAll('.patrol-table textarea').forEach(item => item.value = '');
+            document.querySelectorAll('.area-row').forEach(row => {
+                const checkbox = row.querySelector('input[type="checkbox"]');
+                const observation = row.querySelector('textarea[data-role="observation"]');
+                const action = row.querySelector('textarea[data-role="action"]');
+                if (checkbox) checkbox.checked = false;
+                if (observation) observation.value = '';
+                if (action) action.value = '';
+            });
             localStorage.removeItem(localStorageKey);
             setStatus('Form cleared.');
         }

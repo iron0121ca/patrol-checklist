@@ -218,10 +218,13 @@ async function createUser(email, password, metadata = {}) {
         email: email.trim(),
         password,
         options: {
+            emailRedirectTo: undefined,
             data: {
                 display_name: metadata.display_name || email.split('@')[0],
                 role: metadata.role || 'caretaker'
-            }
+            },
+            // disable email confirmation for this project, so users can sign in immediately
+            email_confirm: true
         }
     });
 
