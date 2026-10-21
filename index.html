@@ -74,10 +74,9 @@
         .simple-form { background: white; border-radius: 14px; box-shadow: var(--shadow); padding: 24px; }
         .simple-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
         .simple-header h1 { font-size: clamp(26px, 3vw, 36px); margin: 0; }
-        .print-btn, .save-btn, .clear-btn {
+        .save-btn, .clear-btn {
             border: none; border-radius: 8px; padding: 10px 16px; font-weight: 700; cursor: pointer;
         }
-        .print-btn { background: #e5e7eb; color: var(--gray-700); }
         .save-btn { background: var(--primary); color: white; }
         .clear-btn { background: #f3f4f6; color: var(--gray-700); }
         .meta-row { display: grid; grid-template-columns: 220px 1fr; gap: 20px; margin-bottom: 20px; }
@@ -108,15 +107,30 @@
         .admin-table th, .admin-table td { border-bottom: 1px solid var(--gray-200); padding: 10px; text-align: left; }
         .admin-table th { color: var(--gray-500); font-size: 13px; }
         .history-date-display { display: inline-flex; align-items: center; gap: 6px; }
-        .history-date-edit {
+        .history-entry-edit {
             display: inline-flex; align-items: center; justify-content: center;
             min-width: 32px; min-height: 32px; border: 0; border-radius: 6px;
             background: transparent; color: var(--primary); font-size: 18px; cursor: pointer;
         }
-        .history-date-edit:hover { background: var(--primary-light); }
-        .history-date-edit:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-        .date-edit-error { color: var(--danger); font-size: 14px; }
-        .date-edit-error:empty { display: none; }
+        .history-entry-edit:hover { background: var(--primary-light); }
+        .history-entry-edit:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .history-edit-error { color: var(--danger); font-size: 14px; }
+        .history-edit-error:empty { display: none; }
+        .history-entry-fields { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--gray-200); }
+        .history-entry-fields:last-child { margin-bottom: 0; border-bottom: 0; }
+        .history-entry-fields h3 { margin-bottom: 12px; font-size: 16px; }
+        .history-entry-fields textarea { min-height: 72px; margin-bottom: 12px; }
+        .history-header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .history-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; }
+        .history-page-status { color: var(--gray-500); font-size: 14px; }
+        #historyEditModal { overflow-y: auto; }
+        #historyEditModal .modal-card {
+            display: flex; flex-direction: column; max-height: calc(100vh - 40px);
+            max-height: calc(100dvh - 40px); min-height: 0;
+        }
+        #historyEditForm { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+        #historyEntryFields { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+        #historyEditModal .modal-actions { flex-shrink: 0; padding-top: 12px; }
 
         .modal-overlay {
             position: fixed; inset: 0; background: rgba(17, 24, 39, 0.55); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50;
@@ -134,7 +148,13 @@
         .toast.success { background: var(--success); }
 
         @media (max-width: 768px) {
+            .app-header { flex-wrap: wrap; gap: 10px; padding: 10px 12px; }
+            .user-info { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+            .main-content { padding: 16px 12px 40px; }
+            .simple-form, .admin-section { padding: 16px; }
             .meta-row, .footer-row { grid-template-columns: 1fr; }
+            #historyEditModal { align-items: center; padding: 12px; }
+            #historyEditModal .modal-card { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); padding: 18px; }
             .patrol-table, .patrol-table thead, .patrol-table tbody, .patrol-table th, .patrol-table td, .patrol-table tr { display: block; width: 100%; }
             .patrol-table thead { display: none; }
             .patrol-table tr { border: 1px solid var(--gray-300); border-radius: 10px; margin-bottom: 12px; padding: 8px; background: white; }
@@ -168,6 +188,10 @@
             #historyList .admin-table td:nth-child(5)::before { content: "Action Taken"; }
             #historyList .admin-table td:nth-child(6)::before { content: "Signature"; }
             #historyList .history-date-display { flex-wrap: wrap; }
+            #historyList .admin-header { align-items: flex-start; flex-wrap: wrap; }
+            #historyList .history-header-actions .btn,
+            #historyList .history-pagination .btn { min-height: 40px; }
+            #historyList .history-pagination { gap: 10px; flex-wrap: wrap; }
         }
     </style>
 </head>
@@ -206,7 +230,6 @@
                     <div class="simple-form">
                         <div class="simple-header">
                             <h1>Daily Patrolling check list</h1>
-                            <button type="button" class="print-btn" onclick="window.print()">Print</button>
                         </div>
 
                         <div class="meta-row">
@@ -305,6 +328,10 @@
                 <div class="admin-section" style="margin-top: 18px;">
                     <div class="admin-header">
                         <h3>📜 Patrol History</h3>
+                        <div class="history-header-actions">
+                            <button type="button" class="btn btn-outline btn-sm" id="printHistoryBtn">Print</button>
+                            <button type="button" class="btn btn-outline btn-sm" id="exportHistoryBtn">Excel</button>
+                        </div>
                     </div>
                     <div id="historyList">
                         <div class="loading">Loading patrol history...</div>
@@ -350,16 +377,15 @@
         </div>
     </div>
 
-    <div id="historyDateModal" class="modal-overlay" aria-hidden="true">
-        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="historyDateTitle">
-            <h2 id="historyDateTitle">Edit Patrol Date</h2>
-            <form id="historyDateForm">
-                <label for="historyDateInput">Date</label>
-                <input id="historyDateInput" type="date" required />
-                <p id="historyDateError" class="date-edit-error" aria-live="polite"></p>
+    <div id="historyEditModal" class="modal-overlay" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="historyEditTitle">
+            <h2 id="historyEditTitle">Edit Observation &amp; Action Taken</h2>
+            <form id="historyEditForm">
+                <div id="historyEntryFields"></div>
+                <p id="historyEditError" class="history-edit-error" aria-live="polite"></p>
                 <div class="modal-actions">
-                    <button id="cancelHistoryDate" type="button" class="btn btn-outline">Cancel</button>
-                    <button id="saveHistoryDate" type="submit" class="btn btn-primary">Save</button>
+                    <button id="cancelHistoryEdit" type="button" class="btn btn-outline">Cancel</button>
+                    <button id="saveHistoryEdit" type="submit" class="btn btn-primary">Save</button>
                 </div>
             </form>
         </div>
@@ -372,6 +398,8 @@
     <script>
         let currentUser = null;
         let historyRecordsById = new Map();
+        let historyPageIndex = 0;
+        let historyRecordCount = 0;
         let editingPatrolId = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -392,13 +420,23 @@
                 if (event.target === document.getElementById('modalOverlay')) closeModal();
             });
             document.getElementById('historyList').addEventListener('click', (event) => {
-                const button = event.target.closest('.history-date-edit');
-                if (button) openHistoryDateEditor(button.dataset.recordId);
+                const button = event.target.closest('.history-entry-edit');
+                if (button) openHistoryEntryEditor(button.dataset.recordId);
+                if (event.target.closest('#previousHistoryPage') && historyPageIndex + 1 < historyRecordCount) {
+                    historyPageIndex += 1;
+                    loadPatrolHistory();
+                }
+                if (event.target.closest('#nextHistoryPage') && historyPageIndex > 0) {
+                    historyPageIndex -= 1;
+                    loadPatrolHistory();
+                }
             });
-            document.getElementById('historyDateForm').addEventListener('submit', saveHistoryDate);
-            document.getElementById('cancelHistoryDate').addEventListener('click', closeHistoryDateEditor);
-            document.getElementById('historyDateModal').addEventListener('click', (event) => {
-                if (event.target === document.getElementById('historyDateModal')) closeHistoryDateEditor();
+            document.getElementById('printHistoryBtn').addEventListener('click', printPatrolHistory);
+            document.getElementById('exportHistoryBtn').addEventListener('click', exportPatrolHistory);
+            document.getElementById('historyEditForm').addEventListener('submit', saveHistoryEntries);
+            document.getElementById('cancelHistoryEdit').addEventListener('click', closeHistoryEntryEditor);
+            document.getElementById('historyEditModal').addEventListener('click', (event) => {
+                if (event.target === document.getElementById('historyEditModal')) closeHistoryEntryEditor();
             });
 
             document.getElementById('saveBtn').addEventListener('click', savePatrol);
@@ -408,64 +446,177 @@
         });
 
         function renderHistoryDateCell(record) {
-            return `<td><span class="history-date-display"><span>${record.patrol_date}</span><button type="button" class="history-date-edit" data-record-id="${record.id}" aria-label="Edit date ${record.patrol_date}" title="Edit date">✎</button></span></td>`;
+            return `<td><span class="history-date-display"><span>${record.patrol_date}</span><button type="button" class="history-entry-edit" data-history-action="edit" data-record-id="${record.id}" aria-label="Edit observations and action taken for ${record.patrol_date}" title="Edit observations and action taken">✎</button></span></td>`;
         }
 
-        function openHistoryDateEditor(recordId) {
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[character]);
+        }
+
+        function getHistoryExportRows() {
+            return [...historyRecordsById.values()].flatMap(record => {
+                const name = record.profiles?.display_name || record.profiles?.username || 'Unknown';
+                const entries = Array.isArray(record.patrol_data?.entries) ? record.patrol_data.entries : [];
+                return (entries.length ? entries : [{}]).map(entry => ({
+                    date: record.patrol_date,
+                    name,
+                    area: entry.area || '-',
+                    observation: entry.observation || '-',
+                    actionTaken: entry.actionTaken || '-',
+                    signature: record.caretaker_signature || entry.signature || '-'
+                }));
+            });
+        }
+
+        function printPatrolHistory() {
+            const rows = getHistoryExportRows();
+            if (!rows.length) {
+                showToast('There are no patrol history records to print.', 'error');
+                return;
+            }
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                showToast('Please allow pop-ups to print patrol history.', 'error');
+                return;
+            }
+
+            const tableRows = rows.map(row => `
+                <tr>
+                    <td>${escapeHtml(row.date)}</td>
+                    <td>${escapeHtml(row.name)}</td>
+                    <td>${escapeHtml(row.area)}</td>
+                    <td>${escapeHtml(row.observation)}</td>
+                    <td>${escapeHtml(row.actionTaken)}</td>
+                    <td>${escapeHtml(row.signature)}</td>
+                </tr>
+            `).join('');
+            const html = `<!doctype html><html><head><meta charset="utf-8"><title>Patrol History</title>
+                <style>body{font:14px Arial,sans-serif;padding:24px;color:#111827}h1{font-size:22px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #d1d5db;padding:10px;text-align:left;vertical-align:top}th{background:#f3f4f6}</style>
+                </head><body><h1>Patrol History</h1><table><thead><tr><th>Date</th><th>Name</th><th>Area</th><th>Observation</th><th>Action Taken</th><th>Signature</th></tr></thead>
+                <tbody>${tableRows}</tbody></table></body></html>`;
+            printWindow.addEventListener('load', () => {
+                printWindow.focus();
+                printWindow.print();
+            }, { once: true });
+            printWindow.document.open();
+            printWindow.document.write(html);
+            printWindow.document.close();
+        }
+
+        function exportPatrolHistory() {
+            const historyRows = getHistoryExportRows();
+            if (!historyRows.length) {
+                showToast('There are no patrol history records to export.', 'error');
+                return;
+            }
+            const csvCell = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+            const rows = [
+                ['Date', 'Name', 'Area', 'Observation', 'Action Taken', 'Signature'],
+                ...historyRows.map(row => [row.date, row.name, row.area, row.observation, row.actionTaken, row.signature])
+            ];
+            const csv = '\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'patrol-history.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function openHistoryEntryEditor(recordId) {
             const record = historyRecordsById.get(String(recordId));
             if (!record) return;
 
             editingPatrolId = String(recordId);
-            document.getElementById('historyDateInput').value = record.patrol_date;
-            document.getElementById('historyDateError').textContent = '';
-            const modal = document.getElementById('historyDateModal');
+            const fields = document.getElementById('historyEntryFields');
+            const entries = Array.isArray(record.patrol_data?.entries) ? record.patrol_data.entries : [];
+            fields.replaceChildren();
+
+            entries.forEach((entry, index) => {
+                const section = document.createElement('section');
+                section.className = 'history-entry-fields';
+                section.dataset.entryIndex = String(index);
+
+                const heading = document.createElement('h3');
+                heading.textContent = entry.area || `Entry ${index + 1}`;
+                section.appendChild(heading);
+
+                const observationLabel = document.createElement('label');
+                observationLabel.textContent = 'Observation';
+                const observation = document.createElement('textarea');
+                observation.value = entry.observation || '';
+                observationLabel.appendChild(observation);
+                section.appendChild(observationLabel);
+
+                const actionLabel = document.createElement('label');
+                actionLabel.textContent = 'Action Taken';
+                const action = document.createElement('textarea');
+                action.value = entry.actionTaken || '';
+                actionLabel.appendChild(action);
+                section.appendChild(actionLabel);
+                fields.appendChild(section);
+            });
+
+            document.getElementById('historyEditError').textContent = '';
+            document.getElementById('saveHistoryEdit').disabled = entries.length === 0;
+            const modal = document.getElementById('historyEditModal');
             modal.classList.add('show');
             modal.setAttribute('aria-hidden', 'false');
-            document.getElementById('historyDateInput').focus();
+            const firstField = fields.querySelector('textarea');
+            if (firstField) firstField.focus();
         }
 
-        function closeHistoryDateEditor() {
-            const modal = document.getElementById('historyDateModal');
+        function closeHistoryEntryEditor() {
+            const modal = document.getElementById('historyEditModal');
             modal.classList.remove('show');
             modal.setAttribute('aria-hidden', 'true');
-            document.getElementById('historyDateForm').reset();
-            document.getElementById('historyDateError').textContent = '';
+            document.getElementById('historyEntryFields').replaceChildren();
+            document.getElementById('historyEditError').textContent = '';
+            document.getElementById('saveHistoryEdit').disabled = false;
             editingPatrolId = null;
         }
 
-        async function saveHistoryDate(event) {
+        async function saveHistoryEntries(event) {
             event.preventDefault();
             const record = historyRecordsById.get(editingPatrolId);
-            const newDate = document.getElementById('historyDateInput').value;
-            const errorMessage = document.getElementById('historyDateError');
-            if (!record || !newDate) return;
-            if (newDate === record.patrol_date) {
-                closeHistoryDateEditor();
-                return;
-            }
+            const errorMessage = document.getElementById('historyEditError');
+            if (!record) return;
 
-            const saveButton = document.getElementById('saveHistoryDate');
+            const entries = Array.isArray(record.patrol_data?.entries) ? record.patrol_data.entries : [];
+            const updatedEntries = entries.map((entry, index) => {
+                const section = document.querySelector(`.history-entry-fields[data-entry-index="${index}"]`);
+                if (!section) return entry;
+                const textareas = section.querySelectorAll('textarea');
+                return {
+                    ...entry,
+                    observation: textareas[0].value,
+                    actionTaken: textareas[1].value
+                };
+            });
+            const saveButton = document.getElementById('saveHistoryEdit');
             saveButton.disabled = true;
             errorMessage.textContent = '';
             try {
                 const { error } = await supabase
                     .from('patrols')
-                    .update({
-                        patrol_date: newDate,
-                        patrol_data: { ...(record.patrol_data || {}), date: newDate }
-                    })
+                    .update({ patrol_data: { ...(record.patrol_data || {}), entries: updatedEntries } })
                     .eq('id', record.id)
                     .select('id')
                     .single();
 
                 if (error) throw error;
-                closeHistoryDateEditor();
+                closeHistoryEntryEditor();
                 await loadPatrolHistory();
-                showToast('Patrol date updated.', 'success');
+                showToast('Observation and action taken updated.', 'success');
             } catch (error) {
-                errorMessage.textContent = error.code === '23505'
-                    ? 'A patrol already exists for this user on that date.'
-                    : error.message || 'Unable to update patrol date.';
+                errorMessage.textContent = error.message || 'Unable to update observation and action taken.';
             } finally {
                 saveButton.disabled = false;
             }
@@ -481,16 +632,23 @@
             try {
                 let query = supabase
                     .from('patrols')
-                    .select('id, patrol_date, status, caretaker_signature, patrol_data, profiles:user_id (display_name, username)')
+                    .select('id, patrol_date, status, caretaker_signature, patrol_data, profiles:user_id (display_name, username)', { count: 'exact' })
                     .order('patrol_date', { ascending: false })
-                    .limit(10);
+                    .order('created_at', { ascending: false });
 
                 if (currentUser.profile?.role !== 'admin') {
                     query = query.eq('user_id', currentUser.id);
                 }
 
-                const { data, error } = await query;
+                const { data, count, error } = await query.range(historyPageIndex, historyPageIndex);
                 if (error) throw error;
+                historyRecordCount = count || 0;
+                if (historyRecordCount === 0) historyPageIndex = 0;
+                if (historyRecordCount > 0 && historyPageIndex >= historyRecordCount) {
+                    historyPageIndex = historyRecordCount - 1;
+                    await loadPatrolHistory();
+                    return;
+                }
                 historyRecordsById = new Map((data || []).map(record => [String(record.id), record]));
 
                 if (!data || data.length === 0) {
@@ -506,9 +664,9 @@
                         return [`<tr>${dateCell}<td>${name}</td><td>-</td><td>-</td><td>-</td><td>${record.caretaker_signature || '-'}</td></tr>`];
                     }
 
-                    return entries.map((entry) => `
+                    return entries.map((entry, index) => `
                         <tr>
-                            ${dateCell}
+                            ${index === 0 ? dateCell : '<td></td>'}
                             <td>${name}</td>
                             <td>${entry.area || '-'}</td>
                             <td>${entry.observation || '-'}</td>
@@ -532,6 +690,11 @@
                         </thead>
                         <tbody>${rows}</tbody>
                     </table>
+                    <div class="history-pagination" aria-label="Patrol history pages">
+                        <button type="button" class="btn btn-outline btn-sm" id="previousHistoryPage" ${historyPageIndex + 1 >= historyRecordCount ? 'disabled' : ''}>Previous</button>
+                        <span class="history-page-status">Page ${historyPageIndex + 1} of ${historyRecordCount}</span>
+                        <button type="button" class="btn btn-outline btn-sm" id="nextHistoryPage" ${historyPageIndex === 0 ? 'disabled' : ''}>Next</button>
+                    </div>
                 `;
             } catch (error) {
                 console.error('History load failed:', error);
@@ -778,6 +941,7 @@
                 if (error) throw error;
 
                 setStatus('Patrol saved to database successfully.');
+                historyPageIndex = 0;
                 await loadPatrolHistory();
                 return savedRow;
             } catch (error) {
