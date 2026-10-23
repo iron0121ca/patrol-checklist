@@ -97,14 +97,15 @@ Create and assign users through the live application's **Admin → Add User** fo
 
 ### Step 7: Configure Frontend
 
-1. Open `js/supabase-client.js`
-2. Find `SUPABASE_CONFIG` and paste your values:
+1. Copy `js/config.example.js` to `js/config.js`
+2. Set your project URL and publishable/anon key in `js/config.js`:
    ```javascript
-   const SUPABASE_CONFIG = {
-       url: 'https://your-project.supabase.co',
-       anonKey: 'your-anon-public-key'
+   window.ENV = {
+       SUPABASE_URL: 'https://your-project.supabase.co',
+       SUPABASE_ANON_KEY: 'your-publishable-key'
    };
    ```
+   `js/config.js` is excluded from Git; do not remove it from `.gitignore` or put a service-role key in it.
 
 ### Step 8: Launch
 

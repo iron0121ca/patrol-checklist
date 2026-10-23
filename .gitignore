@@ -5,6 +5,7 @@
 .env
 .env.*
 !.env.example
+js/config.js
 
 # OS files
 .DS_Store

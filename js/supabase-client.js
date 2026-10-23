@@ -7,17 +7,9 @@
  * 3. Row Level Security helpers
  */
 
-// ===== Supabase Configuration =====
-// In production, replace these with your actual Supabase project values.
-// For local dev, use .env file (see .env.example).
-const SUPABASE_CONFIG = {
-    url: 'https://qlvipvsepcuzzjntxekf.supabase.co',
-    anonKey: 'sb_publishable__HanKROZO6TzLkI4kqEJ6A_FMEntt14'
-};
-
-// Try to load from window.env (set by .env loading script), else use defaults
-const SUPABASE_URL = window.ENV?.SUPABASE_URL || SUPABASE_CONFIG.url;
-const SUPABASE_ANON_KEY = window.ENV?.SUPABASE_ANON_KEY || SUPABASE_CONFIG.anonKey;
+// Configure values in the git-ignored js/config.js file.
+const SUPABASE_URL = window.ENV?.SUPABASE_URL || 'https://your-project-id.supabase.co';
+const SUPABASE_ANON_KEY = window.ENV?.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_PUBLISHABLE_KEY';
 
 let supabase = null;
 
@@ -27,6 +19,13 @@ let supabase = null;
  */
 async function initSupabase() {
     if (supabase) return supabase;
+
+    if (
+        SUPABASE_URL === 'https://your-project-id.supabase.co' ||
+        SUPABASE_ANON_KEY === 'YOUR_SUPABASE_PUBLISHABLE_KEY'
+    ) {
+        throw new Error('Supabase is not configured. Add your project URL and publishable key to js/config.js.');
+    }
 
     try {
         supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
