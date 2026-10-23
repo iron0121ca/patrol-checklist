@@ -94,21 +94,9 @@ async function loadProfile() {
             .eq('id', AuthState.user.id)
             .single();
 
-        if (error) {
-            console.warn('Profile load warning:', error.message);
-            // Profile might not exist yet (trigger hasn't fired)
-            AuthState.profile = {
-                id: AuthState.user.id,
-                username: AuthState.user.email,
-                display_name: AuthState.user.email?.split('@')[0] || 'Unknown',
-                role: 'caretaker',
-                is_active: true
-            };
-        } else {
-            AuthState.profile = data;
-        }
-
-        AuthState.isAuthenticated = data?.is_active !== false;
+        if (error) throw error;
+        AuthState.profile = data;
+        AuthState.isAuthenticated = data.is_active !== false;
     } catch (e) {
         console.error('Profile load error:', e);
         AuthState.profile = null;
@@ -199,39 +187,6 @@ function getChineseErrorMessage(error) {
     return messages[error.message] || `❌ ${error.message}`;
 }
 
-// ===== Admin User Management =====
-
-/**
- * Create a new user (admin only - requires service_role key).
- * NOTE: This function requires admin privileges on Supabase.
- * For simplicity, we use signUp as a workaround.
- *
- * @param {string} email
- * @param {string} password
- * @param {Object} metadata - { display_name, role }
- */
-async function createUser(email, password, metadata = {}) {
-    const sb = window.SupabaseClient.supabase;
-
-    // Use signUp with auto-confirm (set in Supabase Auth settings)
-    const { data, error } = await sb.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-            emailRedirectTo: undefined,
-            data: {
-                display_name: metadata.display_name || email.split('@')[0],
-                role: metadata.role || 'caretaker'
-            },
-            // disable email confirmation for this project, so users can sign in immediately
-            email_confirm: true
-        }
-    });
-
-    if (error) throw new Error(getChineseErrorMessage(error));
-    return data;
-}
-
 /**
  * Send password reset email.
  * @param {string} email
@@ -267,7 +222,6 @@ window.Auth = {
     isAdmin,
     isCaretaker,
     onAuthEvent,
-    createUser,
     resetPassword,
     getSession,
     refreshSession,

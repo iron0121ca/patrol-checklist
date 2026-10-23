@@ -3,7 +3,8 @@
 
 # Environment variables (contain API keys, do NOT commit)
 .env
-.env.local
+.env.*
+!.env.example
 
 # OS files
 .DS_Store
@@ -18,6 +19,9 @@ desktop.ini
 
 # Node dependencies (for future use)
 node_modules/
+
+# Supabase local state
+supabase/.temp/
 
 # Logs
 *.log

@@ -114,6 +114,9 @@
         }
         .history-entry-edit:hover { background: var(--primary-light); }
         .history-entry-edit:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .history-delete-btn { color: var(--danger); }
+        .history-delete-btn:hover:not(:disabled) { background: #fee2e2; }
+        .history-delete-btn:disabled { color: var(--gray-300); cursor: not-allowed; }
         .history-edit-error { color: var(--danger); font-size: 14px; }
         .history-edit-error:empty { display: none; }
         .history-entry-fields { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--gray-200); }
@@ -330,6 +333,7 @@
                         <h3>📜 Patrol History</h3>
                         <div class="history-header-actions">
                             <button type="button" class="btn btn-outline btn-sm" id="printHistoryBtn">Print</button>
+                            <button type="button" class="btn btn-outline btn-sm history-delete-btn" id="deleteHistoryBtn" aria-label="Delete the displayed patrol record" title="Delete the displayed patrol record" disabled>🗑️</button>
                             <button type="button" class="btn btn-outline btn-sm" id="exportHistoryBtn">Excel</button>
                         </div>
                     </div>
@@ -342,8 +346,8 @@
             <div id="pageAdmin" class="page">
                 <div class="admin-section">
                     <div class="admin-header">
-                        <h3>👤 Caretaker Management</h3>
-                        <button type="button" class="btn btn-primary btn-sm" id="addUserBtn">+ Add Caretaker</button>
+                        <h3>👤 User Management</h3>
+                        <button type="button" class="btn btn-primary btn-sm" id="addUserBtn">+ Add User</button>
                     </div>
                     <div id="usersList">
                         <div class="loading">Loading...</div>
@@ -355,14 +359,14 @@
 
     <div id="modalOverlay" class="modal-overlay">
         <div class="modal-card">
-            <h2 id="modalTitle">Add Caretaker</h2>
+            <h2 id="modalTitle">Add User</h2>
             <form id="modalForm">
                 <label>Email</label>
                 <input type="email" id="modalEmail" required />
                 <label>Display Name</label>
                 <input type="text" id="modalDisplayName" required />
                 <label>Password</label>
-                <input type="password" id="modalPassword" placeholder="Password" required />
+                <input type="password" id="modalPassword" placeholder="At least 8 characters" minlength="8" required />
                 <label>Role</label>
                 <select id="modalRole">
                     <option value="caretaker">Caretaker</option>
@@ -398,6 +402,7 @@
     <script>
         let currentUser = null;
         let historyRecordsById = new Map();
+        let historyRecords = [];
         let historyPageIndex = 0;
         let historyRecordCount = 0;
         let editingPatrolId = null;
@@ -424,14 +429,15 @@
                 if (button) openHistoryEntryEditor(button.dataset.recordId);
                 if (event.target.closest('#previousHistoryPage') && historyPageIndex + 1 < historyRecordCount) {
                     historyPageIndex += 1;
-                    loadPatrolHistory();
+                    renderPatrolHistoryPage();
                 }
                 if (event.target.closest('#nextHistoryPage') && historyPageIndex > 0) {
                     historyPageIndex -= 1;
-                    loadPatrolHistory();
+                    renderPatrolHistoryPage();
                 }
             });
             document.getElementById('printHistoryBtn').addEventListener('click', printPatrolHistory);
+            document.getElementById('deleteHistoryBtn').addEventListener('click', deleteDisplayedPatrol);
             document.getElementById('exportHistoryBtn').addEventListener('click', exportPatrolHistory);
             document.getElementById('historyEditForm').addEventListener('submit', saveHistoryEntries);
             document.getElementById('cancelHistoryEdit').addEventListener('click', closeHistoryEntryEditor);
@@ -446,7 +452,8 @@
         });
 
         function renderHistoryDateCell(record) {
-            return `<td><span class="history-date-display"><span>${record.patrol_date}</span><button type="button" class="history-entry-edit" data-history-action="edit" data-record-id="${record.id}" aria-label="Edit observations and action taken for ${record.patrol_date}" title="Edit observations and action taken">✎</button></span></td>`;
+            const date = escapeHtml(record.patrol_date);
+            return `<td><span class="history-date-display"><span>${date}</span><button type="button" class="history-entry-edit" data-history-action="edit" data-record-id="${escapeHtml(record.id)}" aria-label="Edit observations and action taken for ${date}" title="Edit observations and action taken">✎</button></span></td>`;
         }
 
         function escapeHtml(value) {
@@ -515,7 +522,11 @@
                 showToast('There are no patrol history records to export.', 'error');
                 return;
             }
-            const csvCell = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+            const csvCell = value => {
+                const text = String(value ?? '');
+                const safeText = /^[\t\r ]*[=+\-@]/.test(text) ? `'${text}` : text;
+                return `"${safeText.replace(/"/g, '""')}"`;
+            };
             const rows = [
                 ['Date', 'Name', 'Area', 'Observation', 'Action Taken', 'Signature'],
                 ...historyRows.map(row => [row.date, row.name, row.area, row.observation, row.actionTaken, row.signature])
@@ -630,75 +641,130 @@
             }
 
             try {
-                let query = supabase
-                    .from('patrols')
-                    .select('id, patrol_date, status, caretaker_signature, patrol_data, profiles:user_id (display_name, username)', { count: 'exact' })
-                    .order('patrol_date', { ascending: false })
-                    .order('created_at', { ascending: false });
+                const batchSize = 1000;
+                let offset = 0;
+                let totalCount = 0;
+                const records = [];
 
-                if (currentUser.profile?.role !== 'admin') {
-                    query = query.eq('user_id', currentUser.id);
-                }
+                do {
+                    let query = supabase
+                        .from('patrols')
+                        .select('id, user_id, patrol_date, status, caretaker_signature, patrol_data, profiles:user_id (display_name, username)', { count: 'exact' })
+                        .order('patrol_date', { ascending: false })
+                        .order('created_at', { ascending: false });
 
-                const { data, count, error } = await query.range(historyPageIndex, historyPageIndex);
-                if (error) throw error;
-                historyRecordCount = count || 0;
-                if (historyRecordCount === 0) historyPageIndex = 0;
-                if (historyRecordCount > 0 && historyPageIndex >= historyRecordCount) {
-                    historyPageIndex = historyRecordCount - 1;
-                    await loadPatrolHistory();
-                    return;
-                }
-                historyRecordsById = new Map((data || []).map(record => [String(record.id), record]));
-
-                if (!data || data.length === 0) {
-                    container.innerHTML = '<div class="empty-state">No patrol records yet.</div>';
-                    return;
-                }
-
-                const rows = data.flatMap((record) => {
-                    const name = record.profiles?.display_name || record.profiles?.username || 'Unknown';
-                    const entries = Array.isArray(record.patrol_data?.entries) ? record.patrol_data.entries : [];
-                    const dateCell = renderHistoryDateCell(record);
-                    if (!entries.length) {
-                        return [`<tr>${dateCell}<td>${name}</td><td>-</td><td>-</td><td>-</td><td>${record.caretaker_signature || '-'}</td></tr>`];
+                    if (currentUser.profile?.role !== 'admin') {
+                        query = query.eq('user_id', currentUser.id);
                     }
 
-                    return entries.map((entry, index) => `
-                        <tr>
-                            ${index === 0 ? dateCell : '<td></td>'}
-                            <td>${name}</td>
-                            <td>${entry.area || '-'}</td>
-                            <td>${entry.observation || '-'}</td>
-                            <td>${entry.actionTaken || '-'}</td>
-                            <td>${record.caretaker_signature || entry.signature || '-'}</td>
-                        </tr>
-                    `);
-                }).join('');
+                    const { data, count, error } = await query.range(offset, offset + batchSize - 1);
+                    if (error) throw error;
+                    if (offset === 0) totalCount = count || 0;
+                    records.push(...(data || []));
+                    offset += (data || []).length;
+                    if (!data || data.length < batchSize) break;
+                } while (offset < totalCount);
 
-                container.innerHTML = `
-                    <table class="admin-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Name</th>
-                                <th>Area</th>
-                                <th>Observation</th>
-                                <th>Action Taken</th>
-                                <th>Signature</th>
-                            </tr>
-                        </thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                    <div class="history-pagination" aria-label="Patrol history pages">
-                        <button type="button" class="btn btn-outline btn-sm" id="previousHistoryPage" ${historyPageIndex + 1 >= historyRecordCount ? 'disabled' : ''}>Previous</button>
-                        <span class="history-page-status">Page ${historyPageIndex + 1} of ${historyRecordCount}</span>
-                        <button type="button" class="btn btn-outline btn-sm" id="nextHistoryPage" ${historyPageIndex === 0 ? 'disabled' : ''}>Next</button>
-                    </div>
-                `;
+                historyRecords = records.filter(record => hasPatrolDetails(record));
+                historyRecordsById = new Map(historyRecords.map(record => [String(record.id), record]));
+                historyRecordCount = historyRecords.length;
+                if (historyPageIndex >= historyRecordCount) historyPageIndex = Math.max(0, historyRecordCount - 1);
+                renderPatrolHistoryPage();
             } catch (error) {
                 console.error('History load failed:', error);
                 container.innerHTML = '<div class="empty-state">Unable to load patrol records.</div>';
+            }
+        }
+
+        function renderPatrolHistoryPage() {
+            const container = document.getElementById('historyList');
+            const record = historyRecords[historyPageIndex];
+            document.getElementById('deleteHistoryBtn').disabled =
+                !record || currentUser?.profile?.role !== 'admin';
+            if (!record) {
+                container.innerHTML = '<div class="empty-state">No patrol records yet.</div>';
+                return;
+            }
+
+            const name = record.profiles?.display_name || record.profiles?.username || 'Unknown';
+            const entries = record.patrol_data.entries.filter(entry =>
+                String(entry.observation || '').trim() || String(entry.actionTaken || '').trim()
+            );
+            const rows = entries.map((entry, index) => `
+                <tr>
+                    ${index === 0 ? renderHistoryDateCell(record) : '<td></td>'}
+                    <td>${escapeHtml(name)}</td>
+                    <td>${escapeHtml(entry.area || '-')}</td>
+                    <td>${escapeHtml(entry.observation || '-')}</td>
+                    <td>${escapeHtml(entry.actionTaken || '-')}</td>
+                    <td>${escapeHtml(record.caretaker_signature || entry.signature || '-')}</td>
+                </tr>
+            `).join('');
+
+            container.innerHTML = `
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Name</th>
+                            <th>Area</th>
+                            <th>Observation</th>
+                            <th>Action Taken</th>
+                            <th>Signature</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                <div class="history-pagination" aria-label="Patrol history pages">
+                    <button type="button" class="btn btn-outline btn-sm" id="previousHistoryPage" ${historyPageIndex + 1 >= historyRecordCount ? 'disabled' : ''}>Previous</button>
+                    <span class="history-page-status">Page ${historyPageIndex + 1} of ${historyRecordCount}</span>
+                    <button type="button" class="btn btn-outline btn-sm" id="nextHistoryPage" ${historyPageIndex === 0 ? 'disabled' : ''}>Next</button>
+                </div>
+            `;
+        }
+
+        async function deleteDisplayedPatrol() {
+            if (currentUser?.profile?.role !== 'admin') {
+                showToast('Only administrators can delete patrol records.', 'error');
+                return;
+            }
+
+            const record = historyRecords[historyPageIndex];
+            if (!record) return;
+
+            const confirmed = window.confirm(`Delete the patrol record for ${record.patrol_date}? This cannot be undone.`);
+            if (!confirmed) return;
+
+            const deleteButton = document.getElementById('deleteHistoryBtn');
+            deleteButton.disabled = true;
+            try {
+                const { data: deletedRecord, error } = await supabase
+                    .from('patrols')
+                    .delete()
+                    .eq('id', record.id)
+                    .select('id')
+                    .maybeSingle();
+
+                if (error) throw error;
+                if (!deletedRecord) {
+                    throw new Error('No record was deleted. Please check that your account is allowed to delete this patrol record.');
+                }
+
+                let clearedCurrentForm = false;
+                if (record.user_id === currentUser?.id && record.patrol_date === getLocalDateString()) {
+                    clearForm();
+                    clearedCurrentForm = true;
+                }
+
+                await loadPatrolHistory();
+                showToast(
+                    clearedCurrentForm ? 'Patrol record deleted. You can enter it again.' : 'Patrol record deleted.',
+                    'success'
+                );
+            } catch (error) {
+                console.error('Delete patrol failed:', error);
+                showToast(error.message || 'Failed to delete patrol record.', 'error');
+                deleteButton.disabled = false;
             }
         }
 
@@ -724,11 +790,23 @@
                 return;
             }
 
+            if (profile.is_active === false) {
+                currentUser = null;
+                const { error: signOutError } = await supabase.auth.signOut();
+                if (signOutError) console.error('Disabled account sign-out failed:', signOutError);
+                showAuth();
+                const errorBox = document.getElementById('authError');
+                errorBox.textContent = 'This account is disabled. Please contact an administrator.';
+                errorBox.style.display = 'block';
+                return;
+            }
+
             currentUser = { ...user, profile };
             document.getElementById('displayName').textContent = profile.display_name || profile.username || user.email;
             document.getElementById('roleBadge').textContent = profile.role === 'admin' ? 'Admin' : 'Caretaker';
             document.getElementById('roleBadge').classList.toggle('admin', profile.role === 'admin');
             document.getElementById('adminBtn').style.display = profile.role === 'admin' ? '' : 'none';
+            document.getElementById('deleteHistoryBtn').style.display = profile.role === 'admin' ? '' : 'none';
             showApp();
             await loadPatrolHistory();
 
@@ -793,9 +871,9 @@
 
             const rows = users.map(user => `
                 <tr>
-                    <td>${user.username || '-'}</td>
-                    <td>${user.display_name || '-'}</td>
-                    <td>${user.role}</td>
+                    <td>${escapeHtml(user.username || '-')}</td>
+                    <td>${escapeHtml(user.display_name || '-')}</td>
+                    <td>${escapeHtml(user.role || '-')}</td>
                     <td>${user.is_active ? 'Active' : 'Disabled'}</td>
                 </tr>
             `).join('');
@@ -816,7 +894,7 @@
         }
 
         function showAddUserModal() {
-            document.getElementById('modalTitle').textContent = 'Add Caretaker';
+            document.getElementById('modalTitle').textContent = 'Add User';
             document.getElementById('modalUserId').value = '';
             document.getElementById('modalEmail').value = '';
             document.getElementById('modalDisplayName').value = '';
@@ -828,6 +906,7 @@
 
         function closeModal() {
             document.getElementById('modalOverlay').classList.remove('show');
+            document.getElementById('modalPassword').value = '';
         }
 
         async function handleSaveUser() {
@@ -836,30 +915,30 @@
             const password = document.getElementById('modalPassword').value;
             const role = document.getElementById('modalRole').value;
 
-            if (!email || !displayName || !password) {
-                showToast('Please fill in all fields.', 'error');
+            if (!email || !displayName || !password || password.length < 8) {
+                showToast('Enter an email, display name, and a password of at least 8 characters.', 'error');
                 return;
             }
 
             try {
-                const { error } = await supabase.auth.signUp({
-                    email,
-                    password,
-                    options: {
-                        emailRedirectTo: undefined,
-                        data: {
-                            display_name: displayName,
-                            role
-                        },
-                        email_confirm: true
-                    }
+                const { error } = await supabase.functions.invoke('admin-create-user', {
+                    body: { email, displayName, password, role }
                 });
                 if (error) throw error;
                 closeModal();
                 showToast('User created successfully.', 'success');
                 if (currentUser?.profile?.role === 'admin') await loadUsersList();
             } catch (error) {
-                showToast(error.message || 'Failed to create user.', 'error');
+                let message = error.message || 'Failed to create user.';
+                if (error.context instanceof Response) {
+                    try {
+                        const responseBody = await error.context.clone().json();
+                        if (responseBody.error) message = responseBody.error;
+                    } catch (parseError) {
+                        console.error('Failed to read user-creation error response:', parseError);
+                    }
+                }
+                showToast(message, 'error');
             }
         }
 
@@ -872,10 +951,24 @@
         }
 
         const localStorageKey = 'daily-patrol-checklist';
+        function getLocalDateString(date = new Date()) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
         function setStatus(message, isError = false) {
             const statusText = document.getElementById('status');
             statusText.textContent = message;
             statusText.style.color = isError ? '#dc2626' : '#2563eb';
+        }
+
+        function hasPatrolDetails(record) {
+            const entries = Array.isArray(record.patrol_data?.entries) ? record.patrol_data.entries : [];
+            return entries.some(entry =>
+                String(entry.observation || '').trim() || String(entry.actionTaken || '').trim()
+            );
         }
 
         function getFormData() {
@@ -885,11 +978,12 @@
                 const observation = row.querySelector('textarea[data-role="observation"]');
                 const action = row.querySelector('textarea[data-role="action"]');
                 if (checkbox && !checkbox.checked) return;
-                entries.push({
+                const entry = {
                     area: row.dataset.area,
                     observation: observation ? observation.value.trim() : '',
                     actionTaken: action ? action.value.trim() : ''
-                });
+                };
+                if (entry.observation || entry.actionTaken) entries.push(entry);
             });
 
             return {
@@ -911,7 +1005,10 @@
                 setStatus('Please enter the security or caretaker name.', true);
                 return;
             }
-            localStorage.setItem(localStorageKey, JSON.stringify(data));
+            if (!data.entries.length) {
+                setStatus('Please enter an observation or action taken before saving.', true);
+                return;
+            }
 
             if (!currentUser?.id) {
                 setStatus('Please log in before saving patrol records.', true);
@@ -940,6 +1037,7 @@
 
                 if (error) throw error;
 
+                localStorage.setItem(localStorageKey, JSON.stringify(data));
                 setStatus('Patrol saved to database successfully.');
                 historyPageIndex = 0;
                 await loadPatrolHistory();
@@ -952,12 +1050,18 @@
         }
 
         function restorePatrol() {
+            const today = getLocalDateString();
+            document.getElementById('patrolDate').value = today;
             const saved = localStorage.getItem(localStorageKey);
             if (!saved) return;
             try {
                 const data = JSON.parse(saved);
                 if (!data) return;
-                if (data.date) document.getElementById('patrolDate').value = data.date;
+                if (data.date !== today) {
+                    setStatus('A new daily form is ready. Previous patrol records are available in Patrol History.');
+                    return;
+                }
+                document.getElementById('patrolDate').value = today;
                 if (data.name) document.getElementById('caretakerName').value = data.name;
                 if (data.signature) document.getElementById('finalSignature').value = data.signature;
 
@@ -982,7 +1086,7 @@
         }
 
         function clearForm() {
-            document.getElementById('patrolDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('patrolDate').value = getLocalDateString();
             document.getElementById('caretakerName').value = '';
             document.getElementById('finalSignature').value = '';
             document.querySelectorAll('.area-row').forEach(row => {
