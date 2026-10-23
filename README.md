@@ -97,15 +97,14 @@ Create and assign users through the live application's **Admin → Add User** fo
 
 ### Step 7: Configure Frontend
 
-1. Copy `js/config.example.js` to `js/config.js`
-2. Set your project URL and publishable/anon key in `js/config.js`:
+1. Set your project URL and publishable/anon key in `js/config.js`:
    ```javascript
    window.ENV = {
        SUPABASE_URL: 'https://your-project.supabase.co',
        SUPABASE_ANON_KEY: 'your-publishable-key'
    };
    ```
-   `js/config.js` is excluded from Git; do not remove it from `.gitignore` or put a service-role key in it.
+   This public frontend config is tracked by Git and deployed with the site. The publishable/anon key is intended for browser use; never put a service-role key in this file.
 
 ### Step 8: Launch
 

@@ -7,7 +7,7 @@
  * 3. Row Level Security helpers
  */
 
-// Configure values in the git-ignored js/config.js file.
+// Public frontend config is loaded from js/config.js.
 const SUPABASE_URL = window.ENV?.SUPABASE_URL || 'https://your-project-id.supabase.co';
 const SUPABASE_ANON_KEY = window.ENV?.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_PUBLISHABLE_KEY';
 
