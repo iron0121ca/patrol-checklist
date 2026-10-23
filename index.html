@@ -222,7 +222,6 @@
             <div class="user-info">
                 <span class="name" id="displayName"></span>
                 <span class="role-badge" id="roleBadge">Caretaker</span>
-                <button id="adminBtn" class="btn btn-outline btn-sm" type="button" style="display:none;">⚙️ Admin</button>
                 <button class="btn btn-outline btn-sm" type="button" onclick="handleLogout()">Logout</button>
             </div>
         </header>
@@ -416,7 +415,6 @@
                 const password = document.getElementById('loginPassword').value;
                 await handleLogin(email, password);
             });
-            document.getElementById('adminBtn').addEventListener('click', () => switchPage('admin'));
             document.getElementById('addUserBtn').addEventListener('click', showAddUserModal);
             document.getElementById('modalForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -806,7 +804,6 @@
             document.getElementById('displayName').textContent = profile.display_name || profile.username || user.email;
             document.getElementById('roleBadge').textContent = profile.role === 'admin' ? 'Admin' : 'Caretaker';
             document.getElementById('roleBadge').classList.toggle('admin', profile.role === 'admin');
-            document.getElementById('adminBtn').style.display = profile.role === 'admin' ? '' : 'none';
             document.getElementById('deleteHistoryBtn').style.display = profile.role === 'admin' ? '' : 'none';
             showApp();
             await loadPatrolHistory();
