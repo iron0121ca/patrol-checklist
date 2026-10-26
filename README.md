@@ -59,7 +59,7 @@ This SQL will:
 - Set up auto-profile trigger on user signup
 - Insert default patrol checkpoints (28 items across 7 categories)
 
-For an **existing project**, run `database/migrations/20261023_security_hardening.sql` in Supabase SQL Editor before deploying the updated frontend. This migration restricts profile visibility, prevents users from changing their own role, makes the signup trigger assign only the caretaker role, enforces disabled-account access rules, and keeps admin controls working without recursive RLS checks.
+For an **existing project**, run `database/migrations/20261023_security_hardening.sql` and `database/migrations/20261025_twice_daily_patrols.sql` in Supabase SQL Editor before deploying the updated frontend. The first migration hardens access policies; the second allows separate Morning and Afternoon patrol records for the same caretaker and date.
 
 ### Step 3: Configure Authentication
 
@@ -139,11 +139,13 @@ Supabase provides the function's `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPAB
 
 ```
 Login -> Today's Patrol ->
-  ① Confirm date and enter caretaker name
+  ① Choose Morning or Afternoon, confirm date, and enter caretaker name
   ② Record observations and actions for patrol areas
   ③ Enter signature
 -> Save Patrol
 ```
+
+Each caretaker can save a separate Morning and Afternoon patrol for the same date.
 
 ### Admin Features
 - View all caretakers' patrol submissions

@@ -74,6 +74,9 @@
         .simple-form { background: white; border-radius: 14px; box-shadow: var(--shadow); padding: 24px; }
         .simple-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
         .simple-header h1 { font-size: clamp(26px, 3vw, 36px); margin: 0; }
+        .shift-control { display: flex; align-items: center; gap: 8px; }
+        .shift-control label { color: var(--gray-700); font-size: 14px; font-weight: 700; white-space: nowrap; }
+        .shift-control select { min-height: 40px; padding: 8px 32px 8px 12px; border: 1px solid var(--gray-300); border-radius: 8px; background: white; color: var(--gray-900); font: inherit; font-weight: 700; }
         .save-btn, .clear-btn {
             border: none; border-radius: 8px; padding: 10px 16px; font-weight: 700; cursor: pointer;
         }
@@ -84,6 +87,8 @@
         .field label { font-size: 14px; font-weight: 700; color: var(--gray-700); }
         .field input { width: 100%; padding: 10px 12px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 15px; }
         .field input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+        .field input:disabled, .patrol-table input:disabled, .patrol-table textarea:disabled, textarea:disabled, .signature-input:disabled { background: var(--gray-100); color: var(--gray-500); cursor: not-allowed; }
+        .shift-control.invalid select, #patrolDate.invalid { border-color: var(--danger); color: var(--danger); }
         .patrol-table { width: 100%; border-collapse: collapse; margin-bottom: 22px; table-layout: fixed; }
         .patrol-table th, .patrol-table td { border: 1px solid var(--gray-300); padding: 10px 12px; text-align: left; vertical-align: top; }
         .patrol-table th { background: #f9fafb; color: var(--gray-700); font-size: 14px; }
@@ -99,6 +104,7 @@
         .footer-row label { font-size: 15px; font-weight: 700; }
         .actions { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
         .status { min-height: 22px; margin-top: 14px; color: var(--primary); font-weight: 700; }
+        .status.error { color: var(--danger); }
 
         .admin-section { background: white; border-radius: 14px; box-shadow: var(--shadow); padding: 22px; margin-top: 16px; }
         .admin-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
@@ -155,6 +161,10 @@
             .user-info { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
             .main-content { padding: 16px 12px 40px; }
             .simple-form, .admin-section { padding: 16px; }
+            .simple-header { align-items: flex-start; }
+            .simple-header h1 { flex: 1 1 100%; }
+            .shift-control { margin-left: auto; }
+            .shift-control select { min-height: 44px; }
             .meta-row, .footer-row { grid-template-columns: 1fr; }
             #historyEditModal { align-items: center; padding: 12px; }
             #historyEditModal .modal-card { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); padding: 18px; }
@@ -186,10 +196,11 @@
             #historyList .admin-table td::before { color: var(--gray-500); font-weight: 700; }
             #historyList .admin-table td:nth-child(1)::before { content: "Date"; }
             #historyList .admin-table td:nth-child(2)::before { content: "Name"; }
-            #historyList .admin-table td:nth-child(3)::before { content: "Area"; }
-            #historyList .admin-table td:nth-child(4)::before { content: "Observation"; }
-            #historyList .admin-table td:nth-child(5)::before { content: "Action Taken"; }
-            #historyList .admin-table td:nth-child(6)::before { content: "Signature"; }
+            #historyList .admin-table td:nth-child(3)::before { content: "Patrol"; }
+            #historyList .admin-table td:nth-child(4)::before { content: "Area"; }
+            #historyList .admin-table td:nth-child(5)::before { content: "Observation"; }
+            #historyList .admin-table td:nth-child(6)::before { content: "Action Taken"; }
+            #historyList .admin-table td:nth-child(7)::before { content: "Signature"; }
             #historyList .history-date-display { flex-wrap: wrap; }
             #historyList .admin-header { align-items: flex-start; flex-wrap: wrap; }
             #historyList .history-header-actions .btn,
@@ -232,6 +243,13 @@
                     <div class="simple-form">
                         <div class="simple-header">
                             <h1>Daily Patrolling check list</h1>
+                            <div class="shift-control">
+                                <label for="patrolShift">Patrol</label>
+                                <select id="patrolShift" aria-label="Patrol time">
+                                    <option value="Morning">Morning</option>
+                                    <option value="Afternoon">Afternoon</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="meta-row">
@@ -406,6 +424,9 @@
         let historyPageIndex = 0;
         let historyRecordCount = 0;
         let editingPatrolId = null;
+        let activeShift = new Date().getHours() < 12 ? 'Morning' : 'Afternoon';
+        let activePatrolDate = null;
+        let patrolRestrictionMessage = '';
 
         document.addEventListener('DOMContentLoaded', async () => {
             await initSupabase();
@@ -446,7 +467,25 @@
 
             document.getElementById('saveBtn').addEventListener('click', savePatrol);
             document.getElementById('clearBtn').addEventListener('click', clearForm);
+            document.getElementById('patrolShift').addEventListener('change', (event) => {
+                savePatrolDraft(getFormData(), activePatrolDate, activeShift);
+                activeShift = event.target.value;
+                restorePatrolDraft(document.getElementById('patrolDate').value, activeShift);
+            });
+            document.getElementById('patrolDate').addEventListener('change', (event) => {
+                if (event.target.value > getLocalDateString()) {
+                    event.target.value = activePatrolDate;
+                    updatePatrolInputAvailability();
+                    setStatus('Future patrol dates are not allowed. Choose today or an earlier date.', true);
+                    patrolRestrictionMessage = document.getElementById('status').textContent;
+                    return;
+                }
+                savePatrolDraft(getFormData(), activePatrolDate, activeShift);
+                activePatrolDate = event.target.value;
+                restorePatrolDraft(activePatrolDate, activeShift);
+            });
             restorePatrol();
+            setInterval(updatePatrolInputAvailability, 30000);
             await checkSession();
         });
 
@@ -471,6 +510,7 @@
                 const entries = Array.isArray(record.patrol_data?.entries) ? record.patrol_data.entries : [];
                 return (entries.length ? entries : [{}]).map(entry => ({
                     date: record.patrol_date,
+                    shift: record.shift || '-',
                     name,
                     area: entry.area || '-',
                     observation: entry.observation || '-',
@@ -495,6 +535,7 @@
             const tableRows = rows.map(row => `
                 <tr>
                     <td>${escapeHtml(row.date)}</td>
+                    <td>${escapeHtml(row.shift)}</td>
                     <td>${escapeHtml(row.name)}</td>
                     <td>${escapeHtml(row.area)}</td>
                     <td>${escapeHtml(row.observation)}</td>
@@ -504,7 +545,7 @@
             `).join('');
             const html = `<!doctype html><html><head><meta charset="utf-8"><title>Patrol History</title>
                 <style>body{font:14px Arial,sans-serif;padding:24px;color:#111827}h1{font-size:22px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #d1d5db;padding:10px;text-align:left;vertical-align:top}th{background:#f3f4f6}</style>
-                </head><body><h1>Patrol History</h1><table><thead><tr><th>Date</th><th>Name</th><th>Area</th><th>Observation</th><th>Action Taken</th><th>Signature</th></tr></thead>
+                </head><body><h1>Patrol History</h1><table><thead><tr><th>Date</th><th>Patrol</th><th>Name</th><th>Area</th><th>Observation</th><th>Action Taken</th><th>Signature</th></tr></thead>
                 <tbody>${tableRows}</tbody></table></body></html>`;
             printWindow.addEventListener('load', () => {
                 printWindow.focus();
@@ -527,8 +568,8 @@
                 return `"${safeText.replace(/"/g, '""')}"`;
             };
             const rows = [
-                ['Date', 'Name', 'Area', 'Observation', 'Action Taken', 'Signature'],
-                ...historyRows.map(row => [row.date, row.name, row.area, row.observation, row.actionTaken, row.signature])
+                ['Date', 'Patrol', 'Name', 'Area', 'Observation', 'Action Taken', 'Signature'],
+                ...historyRows.map(row => [row.date, row.shift, row.name, row.area, row.observation, row.actionTaken, row.signature])
             ];
             const csv = '\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n');
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -648,7 +689,7 @@
                 do {
                     let query = supabase
                         .from('patrols')
-                        .select('id, user_id, patrol_date, status, caretaker_signature, patrol_data, profiles:user_id (display_name, username)', { count: 'exact' })
+                        .select('id, user_id, patrol_date, shift, status, caretaker_signature, patrol_data, profiles:user_id (display_name, username)', { count: 'exact' })
                         .order('patrol_date', { ascending: false })
                         .order('created_at', { ascending: false });
 
@@ -693,6 +734,7 @@
                 <tr>
                     ${index === 0 ? renderHistoryDateCell(record) : '<td></td>'}
                     <td>${escapeHtml(name)}</td>
+                    <td>${escapeHtml(record.shift || '-')}</td>
                     <td>${escapeHtml(entry.area || '-')}</td>
                     <td>${escapeHtml(entry.observation || '-')}</td>
                     <td>${escapeHtml(entry.actionTaken || '-')}</td>
@@ -706,6 +748,7 @@
                         <tr>
                             <th>Date</th>
                             <th>Name</th>
+                            <th>Patrol</th>
                             <th>Area</th>
                             <th>Observation</th>
                             <th>Action Taken</th>
@@ -731,7 +774,7 @@
             const record = historyRecords[historyPageIndex];
             if (!record) return;
 
-            const confirmed = window.confirm(`Delete the patrol record for ${record.patrol_date}? This cannot be undone.`);
+            const confirmed = window.confirm(`Delete the ${record.shift || 'patrol'} record for ${record.patrol_date}? This cannot be undone.`);
             if (!confirmed) return;
 
             const deleteButton = document.getElementById('deleteHistoryBtn');
@@ -749,8 +792,13 @@
                     throw new Error('No record was deleted. Please check that your account is allowed to delete this patrol record.');
                 }
 
+                localStorage.removeItem(getPatrolDraftKey(record.patrol_date, record.shift));
                 let clearedCurrentForm = false;
-                if (record.user_id === currentUser?.id && record.patrol_date === getLocalDateString()) {
+                if (
+                    record.user_id === currentUser?.id
+                    && record.patrol_date === getLocalDateString()
+                    && record.shift === activeShift
+                ) {
                     clearForm();
                     clearedCurrentForm = true;
                 }
@@ -948,7 +996,53 @@
             setTimeout(() => toast.style.display = 'none', 3000);
         }
 
-        const localStorageKey = 'daily-patrol-checklist';
+        const legacyLocalStorageKey = 'daily-patrol-checklist';
+        function getPatrolDraftKey(date, shift) {
+            return `${legacyLocalStorageKey}:${date}:${shift}`;
+        }
+
+        function savePatrolDraft(data, date = data.date, shift = activeShift) {
+            if (!date) return;
+            localStorage.setItem(getPatrolDraftKey(date, shift), JSON.stringify({ ...data, date, shift }));
+        }
+
+        function restorePatrolDraft(date, shift) {
+            document.getElementById('patrolDate').value = date;
+            clearPatrolFields();
+            const saved = localStorage.getItem(getPatrolDraftKey(date, shift))
+                || (shift === 'Morning' ? localStorage.getItem(legacyLocalStorageKey) : null);
+            if (!saved) {
+                setStatus('');
+                updatePatrolInputAvailability();
+                return;
+            }
+            try {
+                const data = JSON.parse(saved);
+                if (!data || data.date !== date) return;
+                if (data.name) document.getElementById('caretakerName').value = data.name;
+                if (data.signature) document.getElementById('finalSignature').value = data.signature;
+
+                const rows = Array.from(document.querySelectorAll('.area-row'));
+                const savedEntries = Array.isArray(data.entries) ? data.entries : [];
+                rows.forEach(row => {
+                    const checkbox = row.querySelector('input[type="checkbox"]');
+                    const observation = row.querySelector('textarea[data-role="observation"]');
+                    const action = row.querySelector('textarea[data-role="action"]');
+                    const match = savedEntries.find(entry => entry.area === row.dataset.area);
+                    const checked = !!match || (Array.isArray(data.selectedAreas) && data.selectedAreas.includes(row.dataset.area));
+                    if (checkbox) checkbox.checked = checked;
+                    if (observation) observation.value = match ? (match.observation || '') : '';
+                    if (action) action.value = match ? (match.actionTaken || '') : '';
+                });
+                setStatus('Previous patrol draft restored.');
+                updatePatrolInputAvailability();
+            } catch (error) {
+                console.error('Failed to restore patrol draft:', error);
+                setStatus('Unable to restore the saved patrol draft.', true);
+                updatePatrolInputAvailability();
+            }
+        }
+
         function getLocalDateString(date = new Date()) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -959,7 +1053,51 @@
         function setStatus(message, isError = false) {
             const statusText = document.getElementById('status');
             statusText.textContent = message;
-            statusText.style.color = isError ? '#dc2626' : '#2563eb';
+            statusText.classList.toggle('error', isError);
+        }
+
+        function getPatrolTimeError() {
+            const today = getLocalDateString();
+            const date = document.getElementById('patrolDate').value;
+            if (!date) return 'Please select a patrol date.';
+            if (date > today) return 'Future patrol dates are not allowed. Choose today or an earlier date.';
+            if (date !== today) return '';
+            const isMorning = new Date().getHours() < 12;
+            if (activeShift === 'Morning' && !isMorning) {
+                return 'Morning patrol entry is only available before 12:00 PM. Select Afternoon instead.';
+            }
+            if (activeShift === 'Afternoon' && isMorning) {
+                return 'Afternoon patrol entry is only available from 12:00 PM. Select Morning instead.';
+            }
+            return '';
+        }
+
+        function updatePatrolInputAvailability() {
+            const dateInput = document.getElementById('patrolDate');
+            const shiftControl = document.querySelector('.shift-control');
+            const today = getLocalDateString();
+            dateInput.max = today;
+            const error = getPatrolTimeError();
+            const canEnter = !error;
+            document.getElementById('caretakerName').disabled = !canEnter;
+            document.getElementById('finalSignature').disabled = !canEnter;
+            document.querySelectorAll('.area-row input, .area-row textarea').forEach(input => {
+                input.disabled = !canEnter;
+            });
+            document.getElementById('saveBtn').disabled = !canEnter;
+            dateInput.classList.toggle('invalid', Boolean(error && dateInput.value > today));
+            shiftControl.classList.toggle('invalid', Boolean(error && dateInput.value === today));
+            const statusText = document.getElementById('status');
+            if (error) {
+                setStatus(error, true);
+                patrolRestrictionMessage = error;
+            } else {
+                if (patrolRestrictionMessage && statusText.textContent === patrolRestrictionMessage) {
+                    setStatus('');
+                }
+                patrolRestrictionMessage = '';
+            }
+            return canEnter;
         }
 
         function hasPatrolDetails(record) {
@@ -994,6 +1132,7 @@
         }
 
         async function savePatrol() {
+            if (!updatePatrolInputAvailability()) return;
             const data = getFormData();
             if (!data.date) {
                 setStatus('Please select a date.', true);
@@ -1017,10 +1156,12 @@
                 const payload = {
                     user_id: currentUser.id,
                     patrol_date: data.date,
+                    shift: activeShift,
                     status: 'Submitted',
                     caretaker_signature: data.signature,
                     patrol_data: {
                         date: data.date,
+                        shift: activeShift,
                         name: data.name,
                         entries: data.entries,
                         savedAt: data.savedAt
@@ -1029,13 +1170,13 @@
 
                 const { data: savedRow, error } = await supabase
                     .from('patrols')
-                    .upsert(payload, { onConflict: 'user_id,patrol_date' })
+                    .upsert(payload, { onConflict: 'user_id,patrol_date,shift' })
                     .select()
                     .single();
 
                 if (error) throw error;
 
-                localStorage.setItem(localStorageKey, JSON.stringify(data));
+                savePatrolDraft(data, data.date, activeShift);
                 setStatus('Patrol saved to database successfully.');
                 historyPageIndex = 0;
                 await loadPatrolHistory();
@@ -1049,42 +1190,21 @@
 
         function restorePatrol() {
             const today = getLocalDateString();
+            activePatrolDate = today;
             document.getElementById('patrolDate').value = today;
-            const saved = localStorage.getItem(localStorageKey);
-            if (!saved) return;
-            try {
-                const data = JSON.parse(saved);
-                if (!data) return;
-                if (data.date !== today) {
-                    setStatus('A new daily form is ready. Previous patrol records are available in Patrol History.');
-                    return;
-                }
-                document.getElementById('patrolDate').value = today;
-                if (data.name) document.getElementById('caretakerName').value = data.name;
-                if (data.signature) document.getElementById('finalSignature').value = data.signature;
-
-                const rows = Array.from(document.querySelectorAll('.area-row'));
-                const savedEntries = Array.isArray(data.entries) ? data.entries : [];
-
-                rows.forEach(row => {
-                    const checkbox = row.querySelector('input[type="checkbox"]');
-                    const observation = row.querySelector('textarea[data-role="observation"]');
-                    const action = row.querySelector('textarea[data-role="action"]');
-                    const match = savedEntries.find(entry => entry.area === row.dataset.area);
-                    const checked = !!match || (Array.isArray(data.selectedAreas) && data.selectedAreas.includes(row.dataset.area));
-                    if (checkbox) checkbox.checked = checked;
-                    if (observation) observation.value = match ? (match.observation || '') : '';
-                    if (action) action.value = match ? (match.actionTaken || '') : '';
-                });
-
-                setStatus('Previous patrol record restored.');
-            } catch (e) {
-                console.error('Failed to restore patrol', e);
-            }
+            document.getElementById('patrolShift').value = activeShift;
+            restorePatrolDraft(today, activeShift);
         }
 
         function clearForm() {
-            document.getElementById('patrolDate').value = getLocalDateString();
+            const date = document.getElementById('patrolDate').value;
+            clearPatrolFields();
+            localStorage.removeItem(getPatrolDraftKey(date, activeShift));
+            setStatus('Form cleared.');
+            updatePatrolInputAvailability();
+        }
+
+        function clearPatrolFields() {
             document.getElementById('caretakerName').value = '';
             document.getElementById('finalSignature').value = '';
             document.querySelectorAll('.area-row').forEach(row => {
@@ -1095,8 +1215,6 @@
                 if (observation) observation.value = '';
                 if (action) action.value = '';
             });
-            localStorage.removeItem(localStorageKey);
-            setStatus('Form cleared.');
         }
     </script>
 </body>

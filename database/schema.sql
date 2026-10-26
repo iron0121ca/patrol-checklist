@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS public.patrols (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES public.profiles(id),
     patrol_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    shift TEXT NOT NULL DEFAULT 'Day Shift'
-        CHECK (shift IN ('Day Shift', 'Afternoon Shift', 'Night Shift')),
+    shift TEXT NOT NULL DEFAULT 'Morning'
+        CHECK (shift IN ('Morning', 'Afternoon', 'Day Shift', 'Afternoon Shift', 'Night Shift')),
     status TEXT NOT NULL DEFAULT 'Draft'
         CHECK (status IN ('Draft', 'Submitted')),
 
@@ -56,8 +56,8 @@ CREATE TABLE IF NOT EXISTS public.patrols (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    -- One patrol per user per day
-    UNIQUE(user_id, patrol_date)
+    -- One patrol per user, date, and shift
+    UNIQUE(user_id, patrol_date, shift)
 );
 
 -- ===============================================================
